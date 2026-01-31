@@ -1,6 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
+import { ProductCollectionsParamsDto } from 'src/products/dto/product-collections-params.dto';
 import { ProductParamsDto } from 'src/products/dto/product-params.dto';
 import { ProductsService } from 'src/products/providers/products.service';
 
@@ -21,6 +30,7 @@ export class ProductsController {
   /**
    * Creates a product
    * @param createProductsDto
+   * @private
    * @returns Created Product
    */
   @Post('/')
@@ -35,8 +45,64 @@ export class ProductsController {
   }
 
   /**
+   * @private
+   * @param productCollectionsParamsDto
+   * @returns Updated product
+   */
+  @Patch('/:productSlug/collections/:collectionSlug')
+  @ApiOperation({
+    description: 'Adds a collection to a product',
+  })
+  @ApiParam({
+    name: 'productSlug',
+    example: 'black-some-saree',
+    required: true,
+  })
+  @ApiParam({
+    name: 'collectionSlug',
+    example: 'kinav-collection',
+    required: true,
+  })
+  async addCollectionToProduct(
+    @Param() productCollectionsParamsDto: ProductCollectionsParamsDto,
+  ) {
+    return await this.productsService.addCollectionToProduct(
+      productCollectionsParamsDto,
+    );
+  }
+
+  /**
+   * Removes a collection from a product
+   * @private
+   * @param productCollectionsParamsDto
+   * @returns Updated Product
+   */
+  @Delete('/:productSlug/collections/:collectionSlug')
+  @ApiOperation({
+    description: 'Removes a collection from a product',
+  })
+  @ApiParam({
+    name: 'productSlug',
+    example: 'black-some-saree',
+    required: true,
+  })
+  @ApiParam({
+    name: 'collectionSlug',
+    example: 'kinav-collection',
+    required: true,
+  })
+  async removeCollectionFromProduct(
+    @Param() productCollectionsParamsDto: ProductCollectionsParamsDto,
+  ) {
+    return await this.productsService.removeCollectionFromProduct(
+      productCollectionsParamsDto,
+    );
+  }
+
+  /**
    * Soft deletes a product
    * @param productParamsDto
+   * @private
    * @returns Soft deleted product
    */
   @ApiOperation({

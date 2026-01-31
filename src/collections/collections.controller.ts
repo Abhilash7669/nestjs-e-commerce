@@ -1,0 +1,91 @@
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { CollectionsParamsDto } from 'src/collections/dto/collections-params.dto';
+import { CreateCollectionsDto } from 'src/collections/dto/create-collections.dto';
+import { CollectionsService } from 'src/collections/providers/collections.service';
+
+@Controller('collections')
+export class CollectionsController {
+  constructor(
+    /**
+     * Dependency Injection collectionsService
+     */
+    private readonly collectionsService: CollectionsService,
+  ) {}
+
+  /**
+   * todo: add query params later for size, limit...
+   * @method GET
+   * @public
+   * @returns List of Paginated Collection
+   */
+  @Get('/')
+  @ApiOperation({
+    description: 'Gets a paginated list of Collection',
+  })
+  async getCollections() {
+    return await this.collectionsService.getCollections();
+  }
+
+  /**
+   * Creates a collection
+   * @method POST
+   * @private
+   * @param createCollectionsDto
+   * @returns Created Collection
+   */
+  @Post('/')
+  @ApiOperation({
+    description: 'Creates a collection in the database',
+  })
+  @ApiBody({
+    type: CreateCollectionsDto,
+  })
+  async createCollection(@Body() createCollectionsDto: CreateCollectionsDto) {
+    return await this.collectionsService.createCollection(createCollectionsDto);
+  }
+
+  /**
+   * @method GET
+   * @private
+   * @param collectionsParamsDto collection slug
+   * @returns Single Collection
+   */
+  @Get('/:slug')
+  @ApiOperation({
+    description: 'Fetches a single Collection',
+  })
+  @ApiParam({
+    name: 'slug',
+    example: 'kinav-summer-collection',
+    required: true,
+  })
+  async getCollection(@Param() collectionsParamsDto: CollectionsParamsDto) {
+    return await this.collectionsService.getCollection(
+      collectionsParamsDto.slug,
+    );
+  }
+
+  /**
+   * @method GET
+   * @public
+   * @param collectionsParamsDto collection slug
+   * @returns Products related to a collection
+   */
+  @Get('/:slug/products')
+  @ApiOperation({
+    description: 'Fetches products of a collection',
+  })
+  @ApiParam({
+    name: 'slug',
+    example: 'kinav-summer-collection',
+    required: true,
+  })
+  async getCollectionProducts(
+    @Param() collectionsParamsDto: CollectionsParamsDto,
+  ) {
+    return await this.collectionsService.getCollectionProducts(
+      collectionsParamsDto.slug,
+    );
+  }
+}

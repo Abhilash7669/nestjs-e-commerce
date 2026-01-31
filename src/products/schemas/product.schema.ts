@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { Collection, HydratedDocument, Types } from 'mongoose';
+import { ProductGenderEnum } from 'src/products/enums/product-gender.enum';
 
 export type ProductDocument = HydratedDocument<Product>;
 
@@ -18,6 +19,7 @@ export class Product {
     type: String,
     required: [true, 'Slug is required'],
     trim: true,
+    index: true,
   })
   slug: string;
 
@@ -32,6 +34,7 @@ export class Product {
     type: String,
     required: [true, 'Category is required'],
     trim: true,
+    index: true,
   })
   category: string;
 
@@ -50,6 +53,7 @@ export class Product {
   @Prop({
     type: Boolean,
     default: true,
+    index: true,
   })
   isActive: boolean;
 
@@ -65,9 +69,19 @@ export class Product {
   previewImageUrl?: string;
 
   @Prop({
-    type: [String],
+    type: [{ type: Types.ObjectId, ref: Collection.name }],
+    index: true,
+    default: [],
   })
-  collections?: Array<string>;
+  collections: Types.ObjectId[];
+
+  @Prop({
+    type: String,
+    enum: ProductGenderEnum,
+    default: ProductGenderEnum.WOMEN,
+    index: true,
+  })
+  gender: ProductGenderEnum;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
