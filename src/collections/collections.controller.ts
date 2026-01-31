@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { CollectionsParamsDto } from 'src/collections/dto/collections-params.dto';
 import { CreateCollectionsDto } from 'src/collections/dto/create-collections.dto';
 import { CollectionsService } from 'src/collections/providers/collections.service';
+import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 
 @Controller('collections')
 export class CollectionsController {
@@ -83,9 +84,11 @@ export class CollectionsController {
   })
   async getCollectionProducts(
     @Param() collectionsParamsDto: CollectionsParamsDto,
+    @Query() paginationQueryDto: PaginationQueryDto,
   ) {
     return await this.collectionsService.getCollectionProducts(
       collectionsParamsDto.slug,
+      paginationQueryDto,
     );
   }
 }

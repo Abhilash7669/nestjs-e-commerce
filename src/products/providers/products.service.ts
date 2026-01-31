@@ -9,6 +9,8 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, MongooseError, Types } from 'mongoose';
 import { CollectionsService } from 'src/collections/providers/collections.service';
+import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
+import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
 import { generateSlug } from 'src/common/utils/slug.utils';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
 import { ProductCollectionsParamsDto } from 'src/products/dto/product-collections-params.dto';
@@ -30,6 +32,11 @@ export class ProductsService {
      */
     @Inject(forwardRef(() => CollectionsService))
     private readonly collectionsService: CollectionsService,
+
+    /**
+     * Dep Inject paginationProvider
+     */
+    private readonly paginationProvider: PaginationProvider,
   ) {}
 
   async findAll() {
@@ -44,20 +51,24 @@ export class ProductsService {
    * @param collectionId
    * @returns Products for that collection
    */
-  async findProductInCollection(collectionId: Types.ObjectId) {
-    const products = await this.productModel.find(
-      {
+  async findProductInCollection(
+    collectionId: Types.ObjectId,
+    paginationQueryDto: PaginationQueryDto,
+  ) {
+    const paginatedData = await this.paginationProvider.paginateQuery({
+      filter: {
         collections: { $in: [collectionId] },
         isActive: true,
       },
-      { collections: 0, __v: 0, _id: 0, isManualNewOverride: 0, isActive: 0 },
-    );
+      model: this.productModel,
+      paginationQueryDto,
+    });
 
-    if (!products) {
+    if (!paginatedData) {
       throw new NotFoundException('No products for collection found');
     }
 
-    return products;
+    return paginatedData;
   }
 
   /**

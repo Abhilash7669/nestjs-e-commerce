@@ -13,6 +13,7 @@ import {
   Collection,
   CollectionDocument,
 } from 'src/collections/schema/collections.schema';
+import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { generateSlug } from 'src/common/utils/slug.utils';
 import { ProductsService } from 'src/products/providers/products.service';
 
@@ -79,12 +80,16 @@ export class CollectionsService {
    * @param slug
    * @returns Products In that collection
    */
-  async getCollectionProducts(slug: CollectionsParamsDto['slug']) {
+  async getCollectionProducts(
+    slug: CollectionsParamsDto['slug'],
+    paginationQueryDto: PaginationQueryDto,
+  ) {
     const collection = await this.getCollection(slug);
 
     // has collection - get collection id - search through products with this collection id
     const products = await this.productsService.findProductInCollection(
       collection._id,
+      paginationQueryDto,
     );
 
     return products;

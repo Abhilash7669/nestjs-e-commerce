@@ -7,6 +7,7 @@ import {
   CollectionSchema,
 } from 'src/collections/schema/collections.schema';
 import { ProductsModule } from 'src/products/products.module';
+import { PaginationModule } from 'src/common/pagination/pagination.module';
 
 @Module({
   controllers: [CollectionsController],
@@ -16,6 +17,7 @@ import { ProductsModule } from 'src/products/products.module';
     MongooseModule.forFeature([
       { name: Collection.name, schema: CollectionSchema },
     ]),
+    PaginationModule,
     forwardRef(() => ProductsModule),
   ],
 })
