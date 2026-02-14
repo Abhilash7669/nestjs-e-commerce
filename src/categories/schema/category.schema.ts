@@ -1,35 +1,29 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
-export type CollectionDocument = HydratedDocument<Collection>;
+export type CategoryDocument = HydratedDocument<Category>;
 
 @Schema({
   timestamps: true,
 })
-export class Collection {
+export class Category {
   @Prop({
     type: String,
     required: [true, 'Name is required'],
-    unique: true,
   })
   name: string;
 
   @Prop({
     type: String,
     required: [true, 'Slug is required'],
-    unique: true,
+    index: true,
   })
   slug: string;
 
   @Prop({
-    type: String,
-    default: null,
-  })
-  description?: string | null;
-
-  @Prop({
     type: Boolean,
     default: true,
+    index: true,
   })
   isActive: boolean;
 
@@ -38,12 +32,8 @@ export class Collection {
     default: true,
   })
   showInMenu: boolean;
-
-  @Prop({
-    type: String,
-    default: null,
-  })
-  previewImageUrl?: string | null;
 }
 
-export const CollectionSchema = SchemaFactory.createForClass(Collection);
+export const CategorySchema = SchemaFactory.createForClass(Category);
+
+CategorySchema.index({ slug: 1, isActive: 1 }, { name: 'category_index' });

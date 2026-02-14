@@ -5,28 +5,35 @@ import { PaginationArgDto } from 'src/common/pagination/dto/paginationArg.dto';
 @Injectable()
 export class PaginationProvider {
   public async paginateQuery<T>(paginationArgsDto: PaginationArgDto<T>) {
-    const { filter, model, paginationQueryDto, options } = paginationArgsDto;
+    const { filter, model, paginationQueryDto, options, projection } =
+      paginationArgsDto;
 
     const [data, totalItems] = await Promise.all([
-      model.find(filter, null, {
+      model.find(filter, projection, {
         ...options,
         skip:
-          ((paginationQueryDto.page || PAGINATION.DEFAULT.page) - 1) *
-          (paginationQueryDto.limit || PAGINATION.DEFAULT.limit),
-        limit: paginationQueryDto.limit,
+          ((paginationQueryDto?.page || PAGINATION.DEFAULT.page) - 1) *
+          (paginationQueryDto?.limit || PAGINATION.DEFAULT.limit),
+        limit: paginationQueryDto?.limit || PAGINATION.DEFAULT.limit,
       }),
       model.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(
-      totalItems / (paginationQueryDto.limit || PAGINATION.DEFAULT.limit),
+      totalItems / (paginationQueryDto?.limit || PAGINATION.DEFAULT.limit),
     );
 
-    const itemsPerPage = paginationQueryDto.limit;
-    const currentPage = paginationQueryDto.page;
+    const itemsPerPage = paginationQueryDto?.limit || PAGINATION.DEFAULT.limit;
+    const currentPage = paginationQueryDto?.page || PAGINATION.DEFAULT.page;
     const itemsInPage = data.length;
-    const hasNextPage = totalPages === paginationQueryDto.page ? false : true;
-    const hasPrevPage = paginationQueryDto.page === 1 ? false : true;
+    const hasNextPage =
+      totalPages === (paginationQueryDto?.page || PAGINATION.DEFAULT.page)
+        ? false
+        : true;
+    const hasPrevPage =
+      (paginationQueryDto?.page || PAGINATION.DEFAULT.page) === 1
+        ? false
+        : true;
 
     return {
       pagingInfo: {

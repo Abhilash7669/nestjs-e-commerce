@@ -14,18 +14,18 @@ async function bootstrap() {
     }),
   );
 
-  // Initialize Swagger
+  // Initialize Swagger - Builder Pattern
   const config = new DocumentBuilder()
     .setTitle('Chic-Ecomm')
     .setDescription('This is a trial run Chic Ecomm with NestJs')
     .setVersion('1.0')
     .addTag('Chic Ecommerce')
-    .addServer('http://localhost:8080')
+    .addServer('http://localhost:5000')
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
 
-  await app.listen(process.env.PORT ?? 8080);
+  await app.listen(process.env.PORT ?? 5000);
 }
 bootstrap();

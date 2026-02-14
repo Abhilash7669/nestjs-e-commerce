@@ -8,6 +8,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ProductVariantAttributeDto } from 'src/product-variants/dto/product-variant-attribute.dto';
+import { ProductVariantsDiscountDto } from 'src/product-variants/dto/product-variant-discount.dto';
+import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
 
 export class CreateProductVariantsDto {
   @ApiPropertyOptional({
@@ -74,4 +76,16 @@ export class CreateProductVariantsDto {
   @IsNumber()
   @IsNotEmpty()
   stock: number;
+
+  @ApiPropertyOptional({
+    name: 'discount',
+    description: 'Optional discount for variant level',
+    example: {
+      discountType: ProductVaraintsDiscountEnum.FLAT,
+      value: 500,
+    },
+  })
+  @ValidateNested()
+  @Type(() => ProductVariantsDiscountDto)
+  discount?: ProductVariantsDiscountDto;
 }

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
+import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
 import { Product } from 'src/products/schemas/product.schema';
 
 export type ProductVariantDocument = HydratedDocument<ProductVariant>;
@@ -12,12 +13,12 @@ export class ProductVariant {
    * Refers to Product Schema
    */
   @Prop({
-    type: MongooseSchema.Types.ObjectId,
+    type: Types.ObjectId,
     ref: Product.name,
     default: null,
     index: true,
   })
-  productId: Product | null;
+  productId: Types.ObjectId | null;
 
   /**
    * Sudo Zoho related fields
@@ -87,6 +88,25 @@ export class ProductVariant {
   })
   images: Array<string>;
 
+  @Prop({
+    _id: false,
+    type: {
+      discountType: {
+        type: String,
+        enum: ProductVaraintsDiscountEnum,
+        default: ProductVaraintsDiscountEnum.NONE,
+      },
+      value: {
+        type: Number,
+        default: 0,
+      },
+    },
+  })
+  discount?: {
+    discountType: ProductVaraintsDiscountEnum;
+    value: number;
+  } | null;
+
   /**
    * productId - reference - done
    * zohoItemId - maybe from zoho - done
@@ -99,6 +119,7 @@ export class ProductVariant {
    * stock - done
    * isActive - done
    * images - done
+   * discount - done
    */
 }
 
@@ -112,8 +133,8 @@ ProductVariantSchema.index(
   {
     productId: 1,
     isActive: 1,
-    'attributes.color': 1,
-    'attributes.size': 1,
+    'attribute.color': 1,
+    'attribute.size': 1,
   },
   { name: 'product_attributes_index' },
 );

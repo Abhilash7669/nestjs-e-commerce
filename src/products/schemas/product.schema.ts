@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Collection, HydratedDocument, Types } from 'mongoose';
+import { Category } from 'src/categories/schema/category.schema';
 import { ProductGenderEnum } from 'src/products/enums/product-gender.enum';
 
 export type ProductDocument = HydratedDocument<Product>;
@@ -31,12 +32,11 @@ export class Product {
   description: string;
 
   @Prop({
-    type: String,
+    type: Types.ObjectId,
     required: [true, 'Category is required'],
-    trim: true,
-    index: true,
+    ref: Category.name,
   })
-  category: string;
+  category: Types.ObjectId;
 
   @Prop({
     type: Number,

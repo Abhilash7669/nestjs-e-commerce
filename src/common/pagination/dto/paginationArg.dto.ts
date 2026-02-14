@@ -4,6 +4,7 @@ import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dt
 export class PaginationArgDto<T> {
   filter: QueryFilter<T>;
   options?: QueryOptions;
+  projection?: Record<string, 0 | 1>;
   model: Model<T>;
-  paginationQueryDto: PaginationQueryDto;
+  paginationQueryDto?: PaginationQueryDto;
 }

@@ -8,11 +8,15 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, MongooseError, Types } from 'mongoose';
+import { CategoriesService } from 'src/categories/providers/categories.service';
 import { CollectionsService } from 'src/collections/providers/collections.service';
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
-import { generateSlug } from 'src/common/utils/slug.utils';
+import { generateSlug } from 'src/common/utils/text/slugify.utils';
+import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
+import { ProductVariantsService } from 'src/product-variants/providers/product-variants.service';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
+import { ProductCategoriesParamsDto } from 'src/products/dto/product-categories-params.dto';
 import { ProductCollectionsParamsDto } from 'src/products/dto/product-collections-params.dto';
 import { ProductParamsDto } from 'src/products/dto/product-params.dto';
 import { Product, ProductDocument } from 'src/products/schemas/product.schema';
@@ -37,23 +41,102 @@ export class ProductsService {
      * Dep Inject paginationProvider
      */
     private readonly paginationProvider: PaginationProvider,
+
+    /**
+     * Dep Inject categoriesService
+     */
+    private readonly categoriesService: CategoriesService,
+
+    /**
+     * Dep Inject productVariantsService
+     */
+    private readonly productVariantsService: ProductVariantsService,
   ) {}
 
-  async findAll() {
-    const products = await this.productModel.find({}, { _id: 0 }).limit(10);
+  /**
+   *
+   * @param paginationQueryDto
+   * @returns Paginated list of active products
+   */
+  async findAll(paginationQueryDto: PaginationQueryDto) {
+    const products = await this.paginationProvider.paginateQuery({
+      filter: {
+        isActive: true,
+      },
+      projection: {
+        _id: 0,
+        __v: 0,
+      },
+      model: this.productModel,
+      paginationQueryDto,
+    });
     return products;
+  }
+
+  /**
+   *
+   * @param productSlug
+   * @returns Product and it's variants
+   */
+  async findProduct(productSlug: ProductParamsDto['slug']) {
+    const product = await this.productModel
+      .findOne(
+        {
+          isActive: true,
+          slug: productSlug,
+        },
+        {
+          isActive: 0,
+          isManualNewOverride: 0,
+          __v: 0,
+        },
+      )
+      .populate('category', 'name slug');
+
+    if (!product) {
+      throw new NotFoundException(`Product ${productSlug} not found`);
+    }
+
+    const productVariants =
+      await this.productVariantsService.findAllVariantByProductId(product._id);
+
+    if (productVariants && productVariants.length === 0) {
+      return {
+        product,
+        variants: [],
+      };
+    }
+
+    const finalVariant = productVariants.map((variant) => {
+      // domain function to calculate discount
+      const discountedPrice = applyVariantDiscount(
+        variant.discount,
+        variant.price,
+      );
+
+      return {
+        ...variant,
+        discountedPrice,
+      };
+    });
+
+    // todo: handle response type properly. Currently in test phase
+    return {
+      product,
+      variants: finalVariant,
+      totalVariants: productVariants.length,
+    };
   }
 
   /**
    * Gets products related to a collection
    * @public
-   * todo: paginated result and query params for pagination
    * @param collectionId
    * @returns Products for that collection
    */
   async findProductInCollection(
     collectionId: Types.ObjectId,
-    paginationQueryDto: PaginationQueryDto,
+    paginationQueryDto?: PaginationQueryDto,
   ) {
     const paginatedData = await this.paginationProvider.paginateQuery({
       filter: {
@@ -69,6 +152,34 @@ export class ProductsService {
     }
 
     return paginatedData;
+  }
+
+  async updateCategoryInProduct(
+    productCategoriesParamsDto: ProductCategoriesParamsDto,
+  ) {
+    const category = await this.categoriesService.getCategory(
+      productCategoriesParamsDto.categorySlug,
+    );
+
+    const product = await this.productModel.findOneAndUpdate(
+      {
+        slug: productCategoriesParamsDto.productSlug,
+      },
+      {
+        category: category._id,
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!product) {
+      throw new NotFoundException(
+        `Product ${productCategoriesParamsDto.productSlug} does not exist`,
+      );
+    }
+
+    return product;
   }
 
   /**
@@ -171,9 +282,15 @@ export class ProductsService {
 
     if (productExists) throw new ConflictException('Product already exists');
 
+    // find if category exists and extract the id
+    const category = await this.categoriesService.getCategory(
+      createProductsDto.category,
+    );
+
     const product = new this.productModel({
       ...createProductsDto,
       slug: generatedSlug,
+      category: category._id,
     });
     return await product.save();
   }

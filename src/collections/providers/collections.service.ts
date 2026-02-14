@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, MongooseError } from 'mongoose';
+import { Model, MongooseError, QueryFilter } from 'mongoose';
 import { CollectionsParamsDto } from 'src/collections/dto/collections-params.dto';
 import { CreateCollectionsDto } from 'src/collections/dto/create-collections.dto';
 import {
@@ -14,7 +14,8 @@ import {
   CollectionDocument,
 } from 'src/collections/schema/collections.schema';
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
-import { generateSlug } from 'src/common/utils/slug.utils';
+import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
+import { generateSlug } from 'src/common/utils/text/slugify.utils';
 import { ProductsService } from 'src/products/providers/products.service';
 
 @Injectable()
@@ -32,17 +33,29 @@ export class CollectionsService {
      */
     @Inject(forwardRef(() => ProductsService))
     private readonly productsService: ProductsService,
+
+    /**
+     * Dep Inject paginationProvider
+     */
+    private readonly paginationProvider: PaginationProvider,
   ) {}
 
   /**
-   * Retrieves a list of Collections
-   * todo: Paginate it later
+   * Retrieves a list of Paginated Collections
    * @returns Collections List
    */
-  async getCollections() {
-    const collections = await this.collectionModel
-      .find({}, { _id: 0, __v: 0 })
-      .limit(10);
+  async getCollections(paginationQueryDto?: PaginationQueryDto) {
+    const collections = await this.paginationProvider.paginateQuery({
+      model: this.collectionModel,
+      filter: {
+        isActive: true,
+      },
+      projection: {
+        _id: 0,
+        __v: 0,
+      },
+      paginationQueryDto,
+    });
 
     if (!collections) {
       throw new NotFoundException('No collections found');
@@ -57,6 +70,7 @@ export class CollectionsService {
    * @returns Single Collection
    */
   async getCollection(slug: CollectionsParamsDto['slug']) {
+    const start = performance.now();
     const collection = await this.collectionModel
       .findOne(
         {
@@ -71,8 +85,38 @@ export class CollectionsService {
     }
 
     // has collection - get collection id - search through products with this collection id
-
+    const end = performance.now();
+    console.log(
+      `SINGLE COLLECTION DETAILS WITHOUT PRODUCTS TOOK ${end - start}ms time`,
+    );
     return collection;
+  }
+
+  /**
+   * @returns Collections Lookups
+   */
+  async getCollectionLookups(filter?: QueryFilter<CollectionDocument>) {
+    try {
+      const collectionLookups = await this.collectionModel.find(
+        { isActive: true, ...filter },
+        { name: 1, slug: 1, _id: 0 },
+      );
+
+      if (!collectionLookups || collectionLookups.length === 0) return [];
+      return collectionLookups;
+    } catch (error) {
+      if (error instanceof MongooseError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * @returns Collections Lookups list where showInMenu is true
+   */
+  async getMenuCollectionLookups() {
+    return await this.getCollectionLookups({ showInMenu: true });
   }
 
   /**
@@ -82,7 +126,7 @@ export class CollectionsService {
    */
   async getCollectionProducts(
     slug: CollectionsParamsDto['slug'],
-    paginationQueryDto: PaginationQueryDto,
+    paginationQueryDto?: PaginationQueryDto,
   ) {
     const collection = await this.getCollection(slug);
 

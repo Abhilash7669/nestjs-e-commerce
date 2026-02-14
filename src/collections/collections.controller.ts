@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { CollectionsParamsDto } from 'src/collections/dto/collections-params.dto';
 import { CreateCollectionsDto } from 'src/collections/dto/create-collections.dto';
 import { CollectionsService } from 'src/collections/providers/collections.service';
@@ -24,8 +24,35 @@ export class CollectionsController {
   @ApiOperation({
     description: 'Gets a paginated list of Collection',
   })
-  async getCollections() {
-    return await this.collectionsService.getCollections();
+  @ApiQuery({
+    name: 'page',
+    type: 'number',
+    required: false,
+    description: 'Position of the page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    type: 'number',
+    required: false,
+    description: 'Number of entries per query',
+    example: 10,
+  })
+  async getCollections(@Query() paginationQueryDto?: PaginationQueryDto) {
+    return await this.collectionsService.getCollections(paginationQueryDto);
+  }
+
+  /**
+   * @method Get
+   * @public
+   * @returns Collections Lookups
+   */
+  @Get('/lookups')
+  @ApiOperation({
+    description: 'Gets a list of Collection Lookup',
+  })
+  getCollectionsLookups() {
+    return this.collectionsService.getCollectionLookups();
   }
 
   /**
@@ -81,6 +108,20 @@ export class CollectionsController {
     name: 'slug',
     example: 'kinav-summer-collection',
     required: true,
+  })
+  @ApiQuery({
+    name: 'page',
+    type: 'number',
+    required: false,
+    description: 'Position of the page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    type: 'number',
+    required: false,
+    description: 'Number of entries per query',
+    example: 10,
   })
   async getCollectionProducts(
     @Param() collectionsParamsDto: CollectionsParamsDto,

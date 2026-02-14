@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, MongooseError } from 'mongoose';
+import { Connection, Model, MongooseError, Types } from 'mongoose';
 import { CreateProductVariantsDto } from 'src/product-variants/dto/create-product-variants.dto';
 import { EditProductVariantsDto } from 'src/product-variants/dto/edit-product-variants.dto';
 import { ProductVariantsParamsDto } from 'src/product-variants/dto/product-variants-params.dto';
@@ -53,6 +53,32 @@ export class ProductVariantsService {
   }
 
   /**
+   * @param productId
+   * @returns All variants of a Product
+   */
+  async findAllVariantByProductId(productId: Types.ObjectId) {
+    try {
+      const productVariants = await this.productVariantModel
+        .find(
+          {
+            productId: productId,
+          },
+          {
+            _id: 0,
+            __v: 0,
+          },
+        )
+        .lean();
+      return productVariants;
+    } catch (error) {
+      if (error instanceof MongooseError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Creates a product variant
    * @param createProductVariantDto
    * @returns Created Product
@@ -71,13 +97,20 @@ export class ProductVariantsService {
         throw new BadRequestException('Product Already exists');
       }
 
-      const createdProduct = new this.productVariantModel(
-        createProductVariantsDto,
-      );
+      const createdProduct = new this.productVariantModel({
+        ...createProductVariantsDto,
+        productId: createProductVariantsDto.productId
+          ? new Types.ObjectId(createProductVariantsDto.productId)
+          : null,
+      });
       await createdProduct.save();
       await session.commitTransaction();
       return createdProduct;
     } catch (error) {
+      if (error instanceof MongooseError) {
+        console.log(error, 'ERROR INSTANCE');
+        throw new BadRequestException(error.message);
+      }
       await session.abortTransaction();
       throw error;
     } finally {
@@ -96,7 +129,8 @@ export class ProductVariantsService {
     const updatedPayload: Record<string, unknown> = {};
 
     Object.entries(editProductVariantsDto).forEach(([key, value]) => {
-      updatedPayload[key] = value;
+      updatedPayload[key] =
+        key === 'productId' ? new Types.ObjectId(value as string) : value;
     });
 
     if (Object.keys(updatedPayload).length === 0) {
