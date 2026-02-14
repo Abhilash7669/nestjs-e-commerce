@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, MongooseError, Types } from 'mongoose';
+import { Model, MongooseError, QueryFilter, Types } from 'mongoose';
 import { CategoriesService } from 'src/categories/providers/categories.service';
 import { CollectionsService } from 'src/collections/providers/collections.service';
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
@@ -58,10 +58,14 @@ export class ProductsService {
    * @param paginationQueryDto
    * @returns Paginated list of active products
    */
-  async findAll(paginationQueryDto: PaginationQueryDto) {
+  async findAll(
+    paginationQueryDto: PaginationQueryDto,
+    queryFilter?: QueryFilter<ProductDocument>,
+  ) {
     const products = await this.paginationProvider.paginateQuery({
       filter: {
         isActive: true,
+        ...(queryFilter ?? {}),
       },
       projection: {
         _id: 0,
@@ -142,6 +146,16 @@ export class ProductsService {
       filter: {
         collections: { $in: [collectionId] },
         isActive: true,
+      },
+      projection: {
+        _id: 0,
+        isManualNewOverride: 0,
+        __v: 0,
+        createdAt: 0,
+        updatedAt: 0,
+        isActive: 0,
+        collections: 0,
+        category: 0,
       },
       model: this.productModel,
       paginationQueryDto,

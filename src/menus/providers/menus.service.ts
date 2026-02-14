@@ -29,10 +29,11 @@ export class MenusService {
       ]);
       const end = performance.now();
       console.log(`MENUS API TOOK ${end - start}ms`);
-      return {
-        categories,
-        collections,
-      };
+      // todo: standardize response DTO
+      return [
+        { title: 'categories', items: categories ?? null },
+        { title: 'collections', items: collections ?? null },
+      ];
     } catch (error) {
       if (error instanceof MongooseError) {
         throw new BadRequestException(error.message);

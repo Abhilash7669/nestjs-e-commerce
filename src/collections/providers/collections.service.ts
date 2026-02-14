@@ -83,7 +83,6 @@ export class CollectionsService {
     if (!collection) {
       throw new NotFoundException(`Collection Not found for ${slug}`);
     }
-
     // has collection - get collection id - search through products with this collection id
     const end = performance.now();
     console.log(
@@ -128,6 +127,7 @@ export class CollectionsService {
     slug: CollectionsParamsDto['slug'],
     paginationQueryDto?: PaginationQueryDto,
   ) {
+    const start = performance.now();
     const collection = await this.getCollection(slug);
 
     // has collection - get collection id - search through products with this collection id
@@ -136,7 +136,16 @@ export class CollectionsService {
       paginationQueryDto,
     );
 
-    return products;
+    const end = performance.now();
+    console.log(`Getting products in Collection took ${end - start}ms`);
+
+    return {
+      meta: {
+        title: collection.name,
+        description: collection.description,
+      },
+      ...(products ?? null),
+    };
   }
 
   /**

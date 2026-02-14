@@ -9,13 +9,15 @@ export class PaginationProvider {
       paginationArgsDto;
 
     const [data, totalItems] = await Promise.all([
-      model.find(filter, projection, {
-        ...options,
-        skip:
-          ((paginationQueryDto?.page || PAGINATION.DEFAULT.page) - 1) *
-          (paginationQueryDto?.limit || PAGINATION.DEFAULT.limit),
-        limit: paginationQueryDto?.limit || PAGINATION.DEFAULT.limit,
-      }),
+      model
+        .find(filter, projection, {
+          ...options,
+          skip:
+            ((paginationQueryDto?.page || PAGINATION.DEFAULT.page) - 1) *
+            (paginationQueryDto?.limit || PAGINATION.DEFAULT.limit),
+          limit: paginationQueryDto?.limit || PAGINATION.DEFAULT.limit,
+        })
+        .lean(),
       model.countDocuments(filter),
     ]);
 

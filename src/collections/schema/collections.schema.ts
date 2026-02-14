@@ -18,6 +18,7 @@ export class Collection {
     type: String,
     required: [true, 'Slug is required'],
     unique: true,
+    index: true,
   })
   slug: string;
 
