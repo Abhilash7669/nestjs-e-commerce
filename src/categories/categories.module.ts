@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './providers/categories.service';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -7,6 +7,7 @@ import {
   CategorySchema,
 } from 'src/categories/schema/category.schema';
 import { PaginationModule } from 'src/common/pagination/pagination.module';
+import { ProductsModule } from 'src/products/products.module';
 
 @Module({
   controllers: [CategoriesController],
@@ -17,6 +18,7 @@ import { PaginationModule } from 'src/common/pagination/pagination.module';
       { name: Category.name, schema: CategorySchema },
     ]),
     PaginationModule,
+    forwardRef(() => ProductsModule),
   ],
 })
 export class CategoriesModule {}

@@ -1,6 +1,16 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { CategoriesParamsDto } from 'src/categories/dto/categories-params.dto';
 import { CreateCategoriesDto } from 'src/categories/dto/create-categories.dto';
+import { EditCategoriesDto } from 'src/categories/dto/edit-categories.dto';
 import { CategoriesService } from 'src/categories/providers/categories.service';
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 
@@ -57,5 +67,47 @@ export class CategoriesController {
   })
   async createCategory(@Body() createCategoriesDto: CreateCategoriesDto) {
     return await this.categoriesService.createCategory(createCategoriesDto);
+  }
+
+  /**
+   * Edits a Single Category
+   * @method PATCH
+   * @param editCategoriesDto
+   * @returns Edited Category
+   */
+  @Patch('/')
+  @ApiOperation({
+    description: 'Edit a category detail',
+  })
+  @ApiBody({
+    type: EditCategoriesDto,
+  })
+  editCategory(@Body() editCategoriesDto: EditCategoriesDto) {
+    return this.categoriesService.editCategory(editCategoriesDto);
+  }
+
+  @Get('/:slug')
+  @ApiOperation({
+    description: 'Fetches a single Category',
+  })
+  @ApiParam({
+    name: 'slug',
+    example: 'saree',
+    required: true,
+  })
+  getCategory(@Param() categoriesParamsDto: CategoriesParamsDto) {
+    return this.categoriesService.getCategory(categoriesParamsDto.slug);
+  }
+
+  @ApiOperation({
+    description: 'Gets products of a single category',
+  })
+  @ApiParam({
+    name: 'slug',
+    example: 'jeans',
+  })
+  @Get('/:slug/products')
+  getCategoryProducts(@Param() categoriesParamsDto: CategoriesParamsDto) {
+    return this.categoriesService.getCategoryProducts(categoriesParamsDto.slug);
   }
 }

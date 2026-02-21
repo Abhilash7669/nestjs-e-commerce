@@ -9,6 +9,8 @@ import { ProductVariantsModule } from 'src/product-variants/product-variants.mod
 import { CollectionsModule } from 'src/collections/collections.module';
 import { CategoriesModule } from 'src/categories/categories.module';
 import { MenusModule } from 'src/menus/menus.module';
+import { HomeModule } from 'src/home/home.module';
+import { ProductListingsModule } from 'src/product-listings/product-listings.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { MenusModule } from 'src/menus/menus.module';
     CollectionsModule,
     CategoriesModule,
     MenusModule,
+    HomeModule,
+    ProductListingsModule,
     MongooseModule.forRoot(
       'mongodb+srv://abhilashsk1998:weIlcm4nc2Xk94b6@cluser0.1tmh6.mongodb.net/chic_ecomm?retryWrites=true&w=majority&appName=Cluser0',
     ),

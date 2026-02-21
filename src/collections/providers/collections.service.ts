@@ -65,6 +65,28 @@ export class CollectionsService {
   }
 
   /**
+   * @returns top 4 latest collections
+   */
+  async getLatestCollection() {
+    const collection = await this.collectionModel.find(
+      {},
+      { slug: 1, name: 1, previewImageUrl: 1, description: 1, _id: 0 },
+      {
+        limit: 4,
+        sort: {
+          createdAt: -1, // descending order sort
+        },
+      },
+    );
+
+    if (!collection) {
+      throw new NotFoundException('No collections found');
+    }
+
+    return collection;
+  }
+
+  /**
    * Retrieves a single collection
    * @param slug
    * @returns Single Collection
@@ -140,10 +162,6 @@ export class CollectionsService {
     console.log(`Getting products in Collection took ${end - start}ms`);
 
     return {
-      meta: {
-        title: collection.name,
-        description: collection.description,
-      },
       ...(products ?? null),
     };
   }

@@ -9,11 +9,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
 import { ProductCategoriesParamsDto } from 'src/products/dto/product-categories-params.dto';
 import { ProductCollectionsParamsDto } from 'src/products/dto/product-collections-params.dto';
 import { ProductParamsDto } from 'src/products/dto/product-params.dto';
+import { ProductQueryDto } from 'src/products/dto/product-query.dto';
 import { ProductsService } from 'src/products/providers/products.service';
 
 @Controller('products')
@@ -43,8 +43,22 @@ export class ProductsController {
     description: 'Number of entries per query',
     example: 10,
   })
-  async findAll(@Query() paginationQueryDto: PaginationQueryDto) {
-    return await this.productsService.findAll(paginationQueryDto);
+  @ApiQuery({
+    name: 'size',
+    type: 'string',
+    required: false,
+    description: 'size of product',
+    example: 'L',
+  })
+  @ApiQuery({
+    name: 'color',
+    type: 'string',
+    required: false,
+    description: 'Color of the product',
+    example: 'Black',
+  })
+  async findAll(@Query() productQueryDto: ProductQueryDto) {
+    return await this.productsService.findAll(productQueryDto);
   }
 
   /**

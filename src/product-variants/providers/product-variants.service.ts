@@ -5,7 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, MongooseError, Types } from 'mongoose';
+import {
+  Connection,
+  Model,
+  MongooseError,
+  QueryFilter,
+  QueryOptions,
+  Types,
+} from 'mongoose';
 import { CreateProductVariantsDto } from 'src/product-variants/dto/create-product-variants.dto';
 import { EditProductVariantsDto } from 'src/product-variants/dto/edit-product-variants.dto';
 import { ProductVariantsParamsDto } from 'src/product-variants/dto/product-variants-params.dto';
@@ -33,11 +40,24 @@ export class ProductVariantsService {
    * Find All Product Variant
    * todo: To make it paginated
    */
-  async findAllProductVariant() {
+  async findAllProductVariant(
+    queryFilter?: QueryFilter<ProductVariantDocument>,
+    queryOptions?: QueryOptions,
+  ) {
     try {
       const productVariants = await this.productVariantModel
-        .find({})
-        .limit(10)
+        .find(
+          {
+            isActive: true,
+            ...(queryFilter || {}),
+          },
+          {
+            // todo: can bring projection later here
+          },
+          {
+            ...(queryOptions || {}),
+          },
+        )
         .lean();
 
       if (!productVariants) {
@@ -56,12 +76,19 @@ export class ProductVariantsService {
    * @param productId
    * @returns All variants of a Product
    */
-  async findAllVariantByProductId(productId: Types.ObjectId) {
+  async findAllVariantByProductId(
+    productId: Types.ObjectId[],
+    queryFilter?: QueryFilter<ProductVariantDocument>,
+  ) {
     try {
       const productVariants = await this.productVariantModel
         .find(
           {
-            productId: productId,
+            productId: {
+              $in: productId,
+            },
+            ...(queryFilter || {}),
+            // 'attribute.size': 'L', todo: come back later
           },
           {
             _id: 0,

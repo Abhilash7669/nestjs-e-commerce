@@ -15,10 +15,12 @@ import { PaginationProvider } from 'src/common/pagination/providers/pagination.p
 import { generateSlug } from 'src/common/utils/text/slugify.utils';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
 import { ProductVariantsService } from 'src/product-variants/providers/product-variants.service';
+import { ProductVariantDocument } from 'src/product-variants/schema/product-variants.schema';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
 import { ProductCategoriesParamsDto } from 'src/products/dto/product-categories-params.dto';
 import { ProductCollectionsParamsDto } from 'src/products/dto/product-collections-params.dto';
 import { ProductParamsDto } from 'src/products/dto/product-params.dto';
+import { ProductQueryDto } from 'src/products/dto/product-query.dto';
 import { Product, ProductDocument } from 'src/products/schemas/product.schema';
 
 @Injectable()
@@ -55,26 +57,71 @@ export class ProductsService {
 
   /**
    *
-   * @param paginationQueryDto
+   * @param productQueryDto
    * @returns Paginated list of active products
    */
   async findAll(
-    paginationQueryDto: PaginationQueryDto,
+    productQueryDto: ProductQueryDto,
     queryFilter?: QueryFilter<ProductDocument>,
   ) {
+    //todo: let's implement size and color filter first
+    const { limit, page, size, color } = productQueryDto;
+
+    // build query filter object
+    const variantsQueryFilter: QueryFilter<ProductVariantDocument> = {};
+
+    if (size) {
+      variantsQueryFilter['attribute.size'] = size.toUpperCase();
+    }
+
+    if (color) {
+      variantsQueryFilter['attribute.color'] = color;
+    }
+
+    const productVariants =
+      await this.productVariantsService.findAllProductVariant(
+        variantsQueryFilter,
+      );
+
+    if (!productVariants) {
+      throw new NotFoundException('No Product Variants Found');
+    }
+
+    const productIds = productVariants.map((item) => item.productId);
+
     const products = await this.paginationProvider.paginateQuery({
       filter: {
         isActive: true,
+        _id: { $in: productIds },
         ...(queryFilter ?? {}),
       },
       projection: {
-        _id: 0,
         __v: 0,
       },
       model: this.productModel,
-      paginationQueryDto,
+      paginationQueryDto: {
+        limit: limit,
+        page: page,
+      },
     });
-    return products;
+
+    if (!products) {
+      throw new NotFoundException('No Products found for the variants');
+    }
+
+    const finalProductList = products.items.map((item) => {
+      return {
+        ...item,
+        variants: productVariants.filter(
+          (_item) => _item?.productId?.toString() === item._id.toString(),
+        ),
+      };
+    });
+
+    return {
+      pagingInfo: products.pagingInfo,
+      items: finalProductList,
+    };
   }
 
   /**
@@ -102,7 +149,9 @@ export class ProductsService {
     }
 
     const productVariants =
-      await this.productVariantsService.findAllVariantByProductId(product._id);
+      await this.productVariantsService.findAllVariantByProductId([
+        product._id,
+      ]);
 
     if (productVariants && productVariants.length === 0) {
       return {

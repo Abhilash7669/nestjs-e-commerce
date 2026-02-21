@@ -15,7 +15,7 @@ import { ProductVariantsModule } from 'src/product-variants/product-variants.mod
     MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
     forwardRef(() => CollectionsModule),
     PaginationModule,
-    CategoriesModule,
+    forwardRef(() => CategoriesModule),
     ProductVariantsModule,
   ],
   exports: [ProductsService],

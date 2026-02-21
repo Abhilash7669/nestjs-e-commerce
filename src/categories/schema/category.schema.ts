@@ -15,6 +15,18 @@ export class Category {
 
   @Prop({
     type: String,
+    default: null,
+  })
+  description?: string;
+
+  @Prop({
+    type: String,
+    default: null,
+  })
+  imageUrl?: string;
+
+  @Prop({
+    type: String,
     required: [true, 'Slug is required'],
     index: true,
   })
@@ -30,6 +42,7 @@ export class Category {
   @Prop({
     type: Boolean,
     default: true,
+    index: true,
   })
   showInMenu: boolean;
 }

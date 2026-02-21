@@ -1,11 +1,16 @@
 import {
+  BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, QueryFilter } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
+import { CategoriesParamsDto } from 'src/categories/dto/categories-params.dto';
 import { CreateCategoriesDto } from 'src/categories/dto/create-categories.dto';
+import { EditCategoriesDto } from 'src/categories/dto/edit-categories.dto';
 import {
   Category,
   CategoryDocument,
@@ -13,6 +18,7 @@ import {
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
 import { generateSlug } from 'src/common/utils/text/slugify.utils';
+import { ProductsService } from 'src/products/providers/products.service';
 
 @Injectable()
 export class CategoriesService {
@@ -27,6 +33,12 @@ export class CategoriesService {
      * Dep Inject paginationProvider
      */
     private readonly paginationProvider: PaginationProvider,
+
+    /**
+     * Dep Inject (circular dep)
+     */
+    @Inject(forwardRef(() => ProductsService))
+    private readonly productsService: ProductsService,
   ) {}
 
   /**
@@ -46,6 +58,22 @@ export class CategoriesService {
       },
       paginationQueryDto,
     });
+
+    if (!categories) {
+      throw new NotFoundException('No categories found');
+    }
+    return categories;
+  }
+
+  /**
+   * @returns latest categories
+   */
+  async getLatestCategories() {
+    const categories = await this.categoryModel.find(
+      { isActive: true },
+      { __v: 0, _id: 0, createdAt: 0, updatedAt: 0 },
+      { limit: 5, sort: { createdAt: -1 } },
+    );
 
     if (!categories) {
       throw new NotFoundException('No categories found');
@@ -88,11 +116,16 @@ export class CategoriesService {
    * @param categorySlug
    * @returns A Category
    */
-  async getCategory(categorySlug: string) {
+  async getCategory(categorySlug: CategoriesParamsDto['slug']) {
     const category = await this.categoryModel
-      .findOne({
-        slug: categorySlug,
-      })
+      .findOne(
+        {
+          slug: categorySlug,
+        },
+        {
+          __v: 0,
+        },
+      )
       .lean();
 
     if (!category) {
@@ -101,6 +134,31 @@ export class CategoriesService {
 
     return category;
   }
+
+  /**
+   * Get List of Products in a category
+   * @param categorySlug
+   * @returns Paginated Result for Products list of a category
+   */
+  async getCategoryProducts(categorySlug: CategoriesParamsDto['slug']) {
+    const category = await this.getCategory(categorySlug);
+    const products = await this.productsService.findAll(
+      { limit: 10, page: 1 },
+      { category: new Types.ObjectId(category._id) },
+    );
+
+    if (!products) {
+      throw new NotFoundException(
+        `No products found for category: ${categorySlug}`,
+      );
+    }
+
+    return products;
+  }
+
+  // =======================
+  // NON-READ OPS
+  // =======================
 
   /**
    * Creates a category in the database
@@ -126,5 +184,35 @@ export class CategoriesService {
     });
 
     return await category.save();
+  }
+
+  /**
+   * todo: handle cascading cases
+   * Edit a category in the database
+   */
+  async editCategory(editCategoriesDto: EditCategoriesDto) {
+    if (!editCategoriesDto.name) {
+      throw new BadRequestException('Category name is required');
+    }
+    const categorySlug = generateSlug(editCategoriesDto.name);
+
+    const query: Record<string, string> = {};
+
+    if (editCategoriesDto.description)
+      query['description'] = editCategoriesDto.description;
+    if (editCategoriesDto.imageUrl)
+      query['imageUrl'] = editCategoriesDto.imageUrl;
+
+    const category = await this.categoryModel
+      .findOneAndUpdate({ slug: categorySlug }, { $set: query }, { new: true })
+      .lean();
+
+    if (!category) {
+      throw new NotFoundException(
+        `Category: ${editCategoriesDto.name} not found`,
+      );
+    }
+
+    return category;
   }
 }
