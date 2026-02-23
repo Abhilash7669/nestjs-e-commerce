@@ -7,11 +7,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, MongooseError, QueryFilter, Types } from 'mongoose';
+import { Model, MongooseError, QueryFilter, QueryOptions } from 'mongoose';
 import { CategoriesService } from 'src/categories/providers/categories.service';
 import { CollectionsService } from 'src/collections/providers/collections.service';
-import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
+import { buildSort } from 'src/common/utils/lilly-functions/lilly-buildSort';
 import { generateSlug } from 'src/common/utils/text/slugify.utils';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
 import { ProductVariantsService } from 'src/product-variants/providers/product-variants.service';
@@ -65,18 +65,28 @@ export class ProductsService {
     queryFilter?: QueryFilter<ProductDocument>,
   ) {
     //todo: let's implement size and color filter first
-    const { limit, page, size, color } = productQueryDto;
+    const { limit, page, size, color, sort } = productQueryDto;
 
+    // note: sort ideally take 1 value
+    let builtParams: QueryOptions = {};
+    if (sort) {
+      builtParams = buildSort(sort);
+    }
     // build query filter object
     const variantsQueryFilter: QueryFilter<ProductVariantDocument> = {};
-
     if (size) {
-      variantsQueryFilter['attribute.size'] = size.toUpperCase();
+      variantsQueryFilter['attribute.size'] = {
+        $in: size,
+      };
     }
 
     if (color) {
-      variantsQueryFilter['attribute.color'] = color;
+      variantsQueryFilter['attribute.color'] = {
+        $in: color,
+      };
     }
+
+    console.log(builtParams, 'SORT');
 
     const productVariants =
       await this.productVariantsService.findAllProductVariant(
@@ -88,7 +98,6 @@ export class ProductsService {
     }
 
     const productIds = productVariants.map((item) => item.productId);
-
     const products = await this.paginationProvider.paginateQuery({
       filter: {
         isActive: true,
@@ -97,6 +106,11 @@ export class ProductsService {
       },
       projection: {
         __v: 0,
+      },
+      options: {
+        sort: {
+          ...(builtParams || {}),
+        },
       },
       model: this.productModel,
       paginationQueryDto: {
@@ -179,42 +193,6 @@ export class ProductsService {
       variants: finalVariant,
       totalVariants: productVariants.length,
     };
-  }
-
-  /**
-   * Gets products related to a collection
-   * @public
-   * @param collectionId
-   * @returns Products for that collection
-   */
-  async findProductInCollection(
-    collectionId: Types.ObjectId,
-    paginationQueryDto?: PaginationQueryDto,
-  ) {
-    const paginatedData = await this.paginationProvider.paginateQuery({
-      filter: {
-        collections: { $in: [collectionId] },
-        isActive: true,
-      },
-      projection: {
-        _id: 0,
-        isManualNewOverride: 0,
-        __v: 0,
-        createdAt: 0,
-        updatedAt: 0,
-        isActive: 0,
-        collections: 0,
-        category: 0,
-      },
-      model: this.productModel,
-      paginationQueryDto,
-    });
-
-    if (!paginatedData) {
-      throw new NotFoundException('No products for collection found');
-    }
-
-    return paginatedData;
   }
 
   async updateCategoryInProduct(
