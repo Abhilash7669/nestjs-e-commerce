@@ -16,6 +16,7 @@ import {
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
 import { PaginationProvider } from 'src/common/pagination/providers/pagination.provider';
 import { generateSlug } from 'src/common/utils/text/slugify.utils';
+import { ProductQueryDto } from 'src/products/dto/product-query.dto';
 import { ProductsService } from 'src/products/providers/products.service';
 
 @Injectable()
@@ -147,16 +148,14 @@ export class CollectionsService {
    */
   async getCollectionProducts(
     slug: CollectionsParamsDto['slug'],
-    paginationQueryDto?: PaginationQueryDto,
+    productQueryDto: ProductQueryDto,
   ) {
     const start = performance.now();
     const collection = await this.getCollection(slug);
 
-    // has collection - get collection id - search through products with this collection id
-    const products = await this.productsService.findProductInCollection(
-      collection._id,
-      paginationQueryDto,
-    );
+    const products = await this.productsService.findAll(productQueryDto, {
+      collections: collection._id,
+    });
 
     const end = performance.now();
     console.log(`Getting products in Collection took ${end - start}ms`);

@@ -4,6 +4,7 @@ import { CollectionsParamsDto } from 'src/collections/dto/collections-params.dto
 import { CreateCollectionsDto } from 'src/collections/dto/create-collections.dto';
 import { CollectionsService } from 'src/collections/providers/collections.service';
 import { PaginationQueryDto } from 'src/common/pagination/dto/paginationQuery.dto';
+import { ProductQueryDto } from 'src/products/dto/product-query.dto';
 
 @Controller('collections')
 export class CollectionsController {
@@ -123,13 +124,27 @@ export class CollectionsController {
     description: 'Number of entries per query',
     example: 10,
   })
+  @ApiQuery({
+    name: 'size',
+    type: 'string',
+    required: false,
+    description: 'size of product',
+    example: 'L',
+  })
+  @ApiQuery({
+    name: 'color',
+    type: 'string',
+    required: false,
+    description: 'Color of the product',
+    example: 'Black',
+  })
   async getCollectionProducts(
     @Param() collectionsParamsDto: CollectionsParamsDto,
-    @Query() paginationQueryDto: PaginationQueryDto,
+    @Query() productQueryDto: ProductQueryDto,
   ) {
     return await this.collectionsService.getCollectionProducts(
       collectionsParamsDto.slug,
-      paginationQueryDto,
+      productQueryDto,
     );
   }
 }
