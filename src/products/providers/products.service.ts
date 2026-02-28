@@ -14,6 +14,7 @@ import { PaginationProvider } from 'src/common/pagination/providers/pagination.p
 import { buildSort } from 'src/common/utils/lilly-functions/lilly-buildSort';
 import { generateSlug } from 'src/common/utils/text/slugify.utils';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
+import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
 import { ProductVariantsService } from 'src/product-variants/providers/product-variants.service';
 import { ProductVariantDocument } from 'src/product-variants/schema/product-variants.schema';
 import { CreateProductsDto } from 'src/products/dto/create-products.dto';
@@ -144,6 +145,7 @@ export class ProductsService {
    * @returns Product and it's variants
    */
   async findProduct(productSlug: ProductParamsDto['slug']) {
+    const start = performance.now();
     const product = await this.productModel
       .findOne(
         {
@@ -184,9 +186,16 @@ export class ProductsService {
       return {
         ...variant,
         discountedPrice,
+        discountType:
+          variant.discount?.discountType || ProductVaraintsDiscountEnum.NONE,
+        value: variant.discount?.value || 0,
       };
     });
 
+    const end = performance.now();
+    console.log(
+      `Time to get product detail for ${productSlug} is ${end - start}ms`,
+    );
     // todo: handle response type properly. Currently in test phase
     return {
       product,

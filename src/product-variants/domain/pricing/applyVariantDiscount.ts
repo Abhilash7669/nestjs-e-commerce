@@ -7,7 +7,7 @@ export function applyVariantDiscount(
 ) {
   let discountedPrice = 0;
   if (!discount || discount.discountType === ProductVaraintsDiscountEnum.NONE) {
-    return 0;
+    return basePrice;
   }
 
   if (discount.discountType === ProductVaraintsDiscountEnum.FLAT) {
