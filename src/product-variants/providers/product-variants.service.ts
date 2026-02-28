@@ -91,14 +91,57 @@ export class ProductVariantsService {
             // 'attribute.size': 'L', todo: come back later
           },
           {
-            _id: 0,
             __v: 0,
+          },
+          {
+            sort: {
+              'attribute.size': 1,
+            },
           },
         )
         .lean();
       return productVariants;
     } catch (error) {
       if (error instanceof MongooseError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Finds a single variant
+   * @param param
+   * @returns Single Variant
+   */
+  async findVariant(variantId: string): Promise<ProductVariantDocument> {
+    const variant = await this.productVariantModel
+      .findOne({
+        _id: new Types.ObjectId(variantId),
+      })
+      .lean();
+
+    if (!variant) {
+      throw new NotFoundException(`Product not found`);
+    }
+
+    return variant;
+  }
+
+  /**
+   * Finds a single variant by sku
+   * @param sku
+   */
+  async findVariantBySku(sku: string): Promise<ProductVariantDocument> {
+    try {
+      const variant = await this.productVariantModel.findOne({
+        sku,
+      });
+
+      if (!variant) throw new NotFoundException('Variant not found');
+      return variant;
+    } catch (error) {
+      if (error instanceof Error) {
         throw new BadRequestException(error.message);
       }
       throw error;

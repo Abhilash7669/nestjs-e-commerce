@@ -11,6 +11,7 @@ import { CategoriesModule } from 'src/categories/categories.module';
 import { MenusModule } from 'src/menus/menus.module';
 import { HomeModule } from 'src/home/home.module';
 import { ProductListingsModule } from 'src/product-listings/product-listings.module';
+import { CartsModule } from 'src/carts/carts.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ProductListingsModule } from 'src/product-listings/product-listings.mod
     ProductVariantsModule,
     CollectionsModule,
     CategoriesModule,
+    CartsModule,
     MenusModule,
     HomeModule,
     ProductListingsModule,
