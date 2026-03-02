@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
-import { CreateUsersDto } from 'src/users/dto/create-users.dto';
+import { CreateUsersWithPasswordDto } from 'src/users/dto/create-users-with-password.dto';
 import { UsersService } from 'src/users/providers/users.service';
 
 // @ApiTags('chic-users')
@@ -19,8 +19,12 @@ export class UsersController {
   }
 
   @Post('/')
-  @ApiBody({ type: CreateUsersDto })
-  async createUser(@Body() createUsersDto: CreateUsersDto) {
-    return await this.usersService.createUser(createUsersDto);
+  @ApiBody({ type: CreateUsersWithPasswordDto })
+  async createUser(
+    @Body() createUsersWithPasswordDto: CreateUsersWithPasswordDto,
+  ) {
+    return await this.usersService.createUserWithPassword(
+      createUsersWithPasswordDto,
+    );
   }
 }
