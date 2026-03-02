@@ -30,6 +30,15 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('Chic Ecommerce')
     .addServer('http://localhost:5000')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        in: 'header',
+      },
+      'access-token',
+    )
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);

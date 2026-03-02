@@ -40,6 +40,13 @@ export class User {
   })
   role: userRoles;
 
+  // an extra option, can be removed later if not needed
+  @Prop({
+    type: String,
+    default: null,
+  })
+  password?: string;
+
   // todo: add cart & purchase reference later
 }
 

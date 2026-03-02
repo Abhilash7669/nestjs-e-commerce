@@ -12,6 +12,7 @@ import { MenusModule } from 'src/menus/menus.module';
 import { HomeModule } from 'src/home/home.module';
 import { ProductListingsModule } from 'src/product-listings/product-listings.module';
 import { CartsModule } from 'src/carts/carts.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CartsModule } from 'src/carts/carts.module';
     CategoriesModule,
     CartsModule,
     MenusModule,
+    AuthModule,
     HomeModule,
     ProductListingsModule,
     MongooseModule.forRoot(
