@@ -6,6 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
 import { UpdateCartDto } from 'src/carts/dto/update-cart.dto';
+import { discountedPriceChecker } from 'src/carts/helper/discounted-price-checker.helper';
 import { recalculateCart } from 'src/carts/helper/recalculate-cart.helper';
 import { updateExistingCartItems } from 'src/carts/helper/update-cart.helper';
 import { IPopulateCartItem } from 'src/carts/interface/populate-cart-item.interface';
@@ -100,7 +101,9 @@ export class CartsService {
    * @param cartData
    * @returns Cart
    */
-  async updateCart(cartData: UpdateCartDto) {
+  async updateCart(
+    cartData: UpdateCartDto,
+  ): Promise<CartDocument | { items: [] }> {
     const { quantity, sku, cartId, userId } = cartData;
     console.log(cartData, 'CARTDATA HERE');
 
@@ -146,21 +149,26 @@ export class CartsService {
 
       // calculate price of product using applyDiscount
 
-      const price = applyVariantDiscount(
-        productVariant.discount,
-        productVariant.price,
-      );
+      const discountedPrice = applyVariantDiscount({
+        basePrice: productVariant.price,
+        discount: productVariant.discount,
+        quantity,
+      });
 
       // calculate necessary values for creating cart
       try {
         const cart = new this.cartModel({
           totalQuantity: quantity,
-          totalPrice: price * quantity,
+          totalPrice: discountedPrice * quantity,
           items: [
             {
               productId: productVariant.productId?._id,
               productVariantId: productVariant._id,
               quantity,
+              discountedPrice: discountedPriceChecker(
+                discountedPrice,
+                productVariant.price,
+              ),
             },
           ],
           userId: undefined,
@@ -219,12 +227,22 @@ export class CartsService {
         );
 
         if (!itemExists) {
+          // discounted price if any
+          const discountedPrice = applyVariantDiscount({
+            basePrice: productVariant.price,
+            discount: productVariant.discount,
+            quantity,
+          });
           // appending new item to cart
           // NOTE: exclamation on _id
           cart.items.push({
             productId: new Types.ObjectId(productVariant.productId!._id),
             productVariantId: new Types.ObjectId(productVariant._id),
             quantity: quantity,
+            discountedPrice: discountedPriceChecker(
+              discountedPrice,
+              productVariant.price,
+            ),
           });
 
           // TODO: is there a better way?
@@ -235,7 +253,7 @@ export class CartsService {
             },
             {
               path: 'items.productVariantId',
-              select: 'name attribute sku price images',
+              select: 'name attribute sku price images discount',
             },
           ]);
 
@@ -250,10 +268,19 @@ export class CartsService {
         }
 
         // helper function -> update cart item -> type casted
+        const discountedPrice = applyVariantDiscount({
+          basePrice: productVariant.price,
+          discount: productVariant.discount,
+          quantity,
+        });
         const updatedItems = updateExistingCartItems({
           items: cart.items as IPopulateCartItem[],
           newQuantity: quantity,
           productVariant,
+          discountedPrice: discountedPriceChecker(
+            discountedPrice,
+            productVariant.price,
+          ),
         });
 
         // assign cart items and type-cast
@@ -265,9 +292,8 @@ export class CartsService {
         cart.totalQuantity = totalQuantity;
         return await cart.save();
       }
-
       // if zero - check if empty or not
-      if (quantity === 0) {
+      else {
         const updatedItems = cart.items.filter(
           (item) =>
             item.productVariantId._id.toString() !==
@@ -290,5 +316,10 @@ export class CartsService {
         return await cart.save();
       }
     }
+
+    // default response
+    return {
+      items: [],
+    };
   }
 }

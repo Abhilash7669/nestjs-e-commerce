@@ -30,4 +30,10 @@ export class CartItem implements ICartItem {
     default: 1,
   })
   quantity: number;
+
+  @Prop({
+    type: Number,
+    default: 0,
+  })
+  discountedPrice: number;
 }

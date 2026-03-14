@@ -1,22 +1,26 @@
 import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
-import { VariantDiscount } from 'src/product-variants/types/variant-discount.type';
+import { TApplyDiscount } from 'src/product-variants/types/variant-discount.type';
 
-export function applyVariantDiscount(
-  discount: VariantDiscount | null | undefined,
-  basePrice: number,
-) {
+export function applyVariantDiscount({
+  basePrice,
+  discount,
+  quantity,
+}: TApplyDiscount) {
   console.log(discount, 'DISCOUNT');
   let discountedPrice = 0;
   if (!discount || discount.discountType === ProductVaraintsDiscountEnum.NONE) {
-    return basePrice;
+    return basePrice * quantity;
   }
 
   if (discount.discountType === ProductVaraintsDiscountEnum.FLAT) {
-    discountedPrice = basePrice - discount.value;
+    console.log(';HERE?');
+    discountedPrice = (basePrice - discount.value) * quantity;
   }
   if (discount.discountType === ProductVaraintsDiscountEnum.PERCENTAGE) {
-    discountedPrice = basePrice - (discount.value / 100) * basePrice;
+    discountedPrice =
+      (basePrice - (discount.value / 100) * basePrice) * quantity;
   }
+  console.log(discountedPrice, 'FINAL RETURN');
 
   return discountedPrice;
 }

@@ -5,6 +5,7 @@ export function updateExistingCartItems({
   items,
   newQuantity,
   productVariant,
+  discountedPrice,
 }: ICartUpdate): IPopulateCartItem[] {
   return items.map((item) => {
     if (
@@ -14,12 +15,14 @@ export function updateExistingCartItems({
         productId: item.productId,
         productVariantId: item.productVariantId,
         quantity: newQuantity,
+        discountedPrice,
       };
     } else {
       return {
         productId: item.productId,
         productVariantId: item.productVariantId,
         quantity: item.quantity,
+        discountedPrice: item.discountedPrice,
       };
     }
   });

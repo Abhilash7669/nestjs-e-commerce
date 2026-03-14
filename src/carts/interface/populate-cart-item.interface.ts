@@ -13,4 +13,5 @@ export interface IPopulateCartItem {
     } | null;
   };
   quantity: number;
+  discountedPrice: number;
 }

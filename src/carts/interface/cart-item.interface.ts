@@ -6,4 +6,5 @@ export interface ICartItem {
   productId: Types.ObjectId | ProductDocument;
   productVariantId: Types.ObjectId | ProductVariantDocument;
   quantity: number;
+  discountedPrice: number;
 }
