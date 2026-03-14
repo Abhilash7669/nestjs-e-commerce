@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { ICart } from 'src/carts/interface/cart.interface';
 import { CartItem } from 'src/carts/schema/cart-item.schema';
 import { User } from 'src/users/schemas/user.schema';
 
@@ -8,7 +9,7 @@ export type CartDocument = HydratedDocument<Cart>;
 @Schema({
   timestamps: true,
 })
-export class Cart {
+export class Cart implements ICart {
   @Prop({
     type: Types.ObjectId,
     ref: User.name,

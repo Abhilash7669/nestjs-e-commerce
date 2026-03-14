@@ -1,5 +1,6 @@
 import { Prop, Schema } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
+import { ICartItem } from 'src/carts/interface/cart-item.interface';
 import {
   ProductVariant,
   ProductVariantDocument,
@@ -9,7 +10,7 @@ import { Product, ProductDocument } from 'src/products/schemas/product.schema';
 @Schema({
   _id: false,
 })
-export class CartItem {
+export class CartItem implements ICartItem {
   @Prop({
     type: Types.ObjectId,
     ref: Product.name,

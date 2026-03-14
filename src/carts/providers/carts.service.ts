@@ -6,6 +6,9 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
 import { UpdateCartDto } from 'src/carts/dto/update-cart.dto';
+import { recalculateCart } from 'src/carts/helper/recalculate-cart.helper';
+import { updateCartItems } from 'src/carts/helper/update-cart.helper';
+import { IPopulateCartItem } from 'src/carts/interface/populate-cart-item.interface';
 import { Cart, CartDocument } from 'src/carts/schema/cart.schema';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
 // import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
@@ -96,308 +99,134 @@ export class CartsService {
    * @param cartData
    * @returns Cart
    */
-  async updateCart(cartData: UpdateCartDto): Promise<CartDocument | boolean> {
-    // first time cart - no cartId, no userId
-    // hasCart but not logged in cartId, no userId
+  async updateCart(cartData: UpdateCartDto) {
+    const { quantity, sku, cartId, userId } = cartData;
 
-    // first time cart
-    // if (!cartData.cartId) {
-    //   const productVariant = await this.productVariantsService.findVariantBySku(
-    //     cartData.sku,
-    //   );
-
-    //   const itemPrice = applyVariantDiscount(
-    //     productVariant.discount,
-    //     productVariant.price,
-    //   );
-
-    //   const totalPrice = itemPrice * cartData.quantity;
-
-    //   const createdCart = await this.cartModel
-    //     .findOneAndUpdate(
-    //       {
-    //         userId: cartData.userId,
-    //       },
-    //       {
-    //         items: [
-    //           {
-    //             productId: productVariant.productId?._id,
-    //             productVariantId: productVariant._id,
-    //             quantity: cartData.quantity,
-    //           },
-    //         ],
-    //         totalPrice,
-    //         totalQuantity: cartData.quantity,
-    //       },
-    //       {
-    //         upsert: true,
-    //         new: true,
-    //       },
-    //     )
-    //     .populate('items.productId', 'name previewImageUrl')
-    //     .populate('items.productVariantId', 'name attribute sku price images');
-
-    //   return createdCart;
-    // }
-
-    // if (cartData.cartId) {
-    //   /**
-    //    * Find cart
-    //    * get items
-    //    * calculate item for increased/decreased quantity of item
-    //    *  - can be 0
-    //    *  - can be > 0
-    //    *
-    //    * Update items
-    //    * Update Total Quantity
-    //    * Update Total Price
-    //    */
-    //   const cart = await this.cartModel
-    //     .findOne({
-    //       _id: new Types.ObjectId(cartData.cartId),
-    //     })
-    //     .populate('items.productId', '_id')
-    //     .populate('items.productVariantId', 'sku');
-
-    //   if (!cart) throw new NotFoundException('Cart not found');
-
-    //   const productVariant = await this.productVariantsService.findVariantBySku(
-    //     cartData.sku,
-    //   );
-
-    //   if (!productVariant) {
-    //     throw new NotFoundException('Product Variant not found');
-    //   }
-
-    //   const itemPrice = applyVariantDiscount(
-    //     productVariant.discount,
-    //     productVariant.price,
-    //   );
-
-    //   // always save userId
-    //   cart.userId = cartData.userId
-    //     ? new Types.ObjectId(cartData.userId)
-    //     : undefined;
-
-    //   // finding the Targeted product Variant
-    //   const targetItem = cart?.items.filter(
-    //     (item) =>
-    //       item.productVariantId._id.toString() ===
-    //       productVariant._id.toString(),
-    //   )[0];
-
-    //   // appending new item to cart
-    //   if (!targetItem) {
-    //     cart.items.push({
-    //       productId: productVariant.productId!._id,
-    //       productVariantId: productVariant._id,
-    //       quantity: cartData.quantity,
-    //     });
-    //     const addedPrice = itemPrice * cartData.quantity;
-    //     cart.totalPrice = cart.totalPrice + addedPrice;
-    //     cart.totalQuantity = cart.totalQuantity + cartData.quantity;
-    //     await cart.save();
-
-    //     await cart.populate([
-    //       {
-    //         path: 'items.productId',
-    //         select: 'name previewImageUrl',
-    //       },
-    //       {
-    //         path: 'items.productVariantId',
-    //         select: 'name attribute sku price images',
-    //       },
-    //     ]);
-    //     return cart;
-    //   }
-
-    //   // prev quantity existing in cart
-    //   const prevQuantity = targetItem.quantity;
-
-    //   // prev price existing in cart
-    //   const prevPrice = itemPrice * prevQuantity;
-
-    //   // removing item from cart
-    //   if (cartData.quantity === 0) {
-    //     const updatedCartItem = cart.items.filter(
-    //       (item) =>
-    //         item.productVariantId._id.toString() !==
-    //         productVariant._id.toString(),
-    //     );
-    //     cart.totalQuantity = cart.totalQuantity - prevQuantity;
-    //     cart.totalPrice = cart.totalPrice - prevPrice;
-
-    //     if (updatedCartItem.length === 0) {
-    //       await this.cartModel.deleteOne({
-    //         _id: new Types.ObjectId(cart._id),
-    //       });
-
-    //       return false;
-    //     }
-
-    //     cart.items = updatedCartItem;
-
-    //     await cart.save();
-
-    //     await cart.populate([
-    //       {
-    //         path: 'items.productId',
-    //         select: 'name previewImageUrl',
-    //       },
-    //       {
-    //         path: 'items.productVariantId',
-    //         select: 'name attribute sku price images',
-    //       },
-    //     ]);
-    //     return cart;
-    //   }
-
-    //   // increment/decrement from cart
-    //   /**
-    //    * update quantity
-    //    * update totalPrice5
-    //    */
-
-    //   const newItemPrice = cartData.quantity * itemPrice;
-
-    //   // update quantity for item
-    //   const updatedCartItems = cart.items.map((item) => {
-    //     if (
-    //       item.productVariantId._id.toString() === productVariant._id.toString()
-    //     ) {
-    //       return {
-    //         ...item,
-    //         quantity: cartData.quantity,
-    //       };
-    //     }
-    //     return item;
-    //   });
-
-    //   // increment/decrement totalPrice
-    //   // decrement
-    //   if (prevQuantity > cartData.quantity) {
-    //     cart.totalPrice = cart.totalPrice - (prevPrice - newItemPrice);
-    //     cart.totalQuantity =
-    //       cart.totalQuantity - (prevQuantity - cartData.quantity);
-    //     /**
-    //      * total = 7
-    //      * prev 2
-    //      * current 1
-    //      * total = 7 - (2-1)
-    //      * = 6
-    //      */
-    //   }
-
-    //   // increment
-    //   if (prevQuantity < cartData.quantity) {
-    //     cart.totalPrice = cart.totalPrice - prevPrice + newItemPrice;
-    //     cart.totalQuantity =
-    //       cart.totalQuantity - prevQuantity + cartData.quantity;
-    //   }
-
-    //   cart.items = updatedCartItems;
-    //   await cart.save();
-
-    //   await cart.populate([
-    //     {
-    //       path: 'items.productId',
-    //       select: 'name previewImageUrl',
-    //     },
-    //     {
-    //       path: 'items.productVariantId',
-    //       select: 'name attribute sku price images',
-    //     },
-    //   ]);
-    //   return cart;
-    // }
+    // ===== USER SCENARIOS ======== //
+    /**
+     * Fresh user
+     *  - no user id
+     *  - no cart id
+     *
+     * Logged out user
+     *  - no user id
+     *  - may or may not have a cart in db
+     *
+     * Logged in user
+     *  - has user id
+     *  - may or may not have a cart in db
+     */
+    // ===== USER SCENARIOS END ======== //
+    // ===== CART UPDATE LOGIC ======== //
+    /**
+     * First HIT
+     * Increment items
+     *  - Re-calculate whole cart
+     * Decrement items
+     *  - Re-calculate whole cart
+     * Empty cart
+     *  - Delete cart
+     */
+    // ===== CART UPDATE LOGIC END ======== //
 
     /**
-     * Scenarios
-     * 1. Has UserId no CartId
-     * 2. Has UserId, has CartId
-     * 3. !UserId, hasCartId
-     * 4. !UserId, !CartId
+     * First HIT
+     * Fresh user
      */
+    if (!cartId && !userId) {
+      // find items in db with sku
 
-    if (cartData.userId && !cartData.cartId) {
-      const productVariant = await this.productVariantsService.findVariantBySku(
-        cartData.sku,
-      );
+      const productVariant =
+        await this.productVariantsService.findVariantBySku(sku);
 
-      const itemPrice = applyVariantDiscount(
+      // calculate price of product using applyDiscount
+
+      const price = applyVariantDiscount(
         productVariant.discount,
         productVariant.price,
       );
 
-      const cart = await this.getUserCartByUserId(cartData.userId);
-
-      if (!cart) {
-        // first time user but logged in
-
-        const totalPrice = itemPrice * cartData.quantity;
-
-        const createCart = new this.cartModel({
-          userId: new Types.ObjectId(cartData.userId),
+      // calculate necessary values for creating cart
+      try {
+        const cart = new this.cartModel({
+          totalQuantity: quantity,
+          totalPrice: price,
           items: [
             {
-              productId: productVariant.productId?._id,
+              productId: productVariant.productId,
               productVariantId: productVariant._id,
-              quantity: cartData.quantity,
+              quantity,
             },
           ],
-          totalPrice,
-          totalQuantity: cartData.quantity,
+          userId: undefined,
         });
-
-        return await createCart.save();
-      }
-
-      await cart.populate([
-        {
-          path: 'items.productId',
-          select: 'name previewImageUrl',
-        },
-        {
-          path: 'items.productVariantId',
-          select: 'name attribute sku price images',
-        },
-      ]);
-      // HAS CART
-      /**
-       * Get Item
-       * Check if item already exists in cart
-       *  if exists increment or decrement, need identified (inc or dec)
-       * else
-       *  add to cart
-       */
-
-      // find if item already exists in cart
-      const itemInCart = cart.items.filter(
-        (item) =>
-          item.productVariantId._id.toString() ===
-          productVariant._id.toString(),
-      )[0];
-
-      // item does not exist in cart
-      if (!itemInCart) {
-        cart.items.push({
-          productId: productVariant.productId!._id,
-          productVariantId: productVariant._id,
-          quantity: cartData.quantity,
-        });
-
-        const totalItemPrice = itemPrice * cartData.quantity;
-        cart.totalPrice = cart.totalPrice + totalItemPrice;
-        cart.totalQuantity = cart.totalQuantity + cartData.quantity;
-        await cart.save();
-
         return cart;
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new BadRequestException(error.message);
+        }
+        throw error;
       }
-
-      // item exists in cart
-      // we need an action identifier!! of what action to take
     }
 
-    return true;
+    /**
+     * Has CartId
+     */
+    if ((cartId && !userId) || (cartId && userId)) {
+      // check if cart exists in db
+      const cart = await this.cartModel
+        .findById(cartId)
+        .populate('items.productId', 'name previewImageUrl')
+        .populate(
+          'items.productVariantId',
+          'name attribute sku price images discount',
+        );
+
+      if (!cart) throw new NotFoundException('Cart not found');
+
+      // top level userId check
+      if (userId) cart.userId = new Types.ObjectId(userId);
+
+      // get items from db
+      const productVariant =
+        await this.productVariantsService.findVariantBySku(sku);
+
+      // increment/decrement
+      if (quantity !== 0) {
+        // helper function -> update cart item -> type casted
+        const updatedItems = updateCartItems({
+          items: cart.items as IPopulateCartItem[],
+          newQuantity: quantity,
+          productVariant,
+        });
+
+        // re-calculate cart
+        const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
+        cart.totalPrice = totalPrice;
+        cart.totalQuantity = totalQuantity;
+        return await cart.save();
+      }
+
+      // if zero - check if empty or not
+      if (quantity === 0) {
+        const updatedItems = cart.items.filter(
+          (item) =>
+            item.productVariantId._id.toString() !==
+            productVariant._id.toString(),
+        ) as IPopulateCartItem[];
+
+        // cart is empty
+        if (updatedItems.length === 0) {
+          await cart.deleteOne();
+          return [];
+        }
+        // re-calculate cart
+        const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
+        cart.totalPrice = totalPrice;
+        cart.totalQuantity = totalQuantity;
+
+        return await cart.save();
+      }
+    }
   }
 }
