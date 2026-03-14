@@ -9,12 +9,13 @@ export function recalculateCart(items: IPopulateCartItem[]): ICartCalculate {
   } satisfies ICartCalculate;
 
   for (const item of items) {
+    console.log(item, 'ITEM');
     const price = applyVariantDiscount(
-      item.productVariantId.discount,
+      item.productVariantId?.discount || null,
       item.productVariantId.price,
     );
-    cartObject.totalPrice = price;
-    cartObject.totalQuantity = item.quantity;
+    cartObject.totalPrice = price * item.quantity + cartObject.totalPrice;
+    cartObject.totalQuantity = item.quantity + cartObject.totalQuantity;
   }
   return {
     totalPrice: cartObject.totalPrice,

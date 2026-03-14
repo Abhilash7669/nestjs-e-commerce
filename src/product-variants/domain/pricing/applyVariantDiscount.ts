@@ -5,6 +5,7 @@ export function applyVariantDiscount(
   discount: VariantDiscount | null | undefined,
   basePrice: number,
 ) {
+  console.log(discount, 'DISCOUNT');
   let discountedPrice = 0;
   if (!discount || discount.discountType === ProductVaraintsDiscountEnum.NONE) {
     return basePrice;

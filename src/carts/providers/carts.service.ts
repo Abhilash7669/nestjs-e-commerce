@@ -7,8 +7,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
 import { UpdateCartDto } from 'src/carts/dto/update-cart.dto';
 import { recalculateCart } from 'src/carts/helper/recalculate-cart.helper';
-import { updateCartItems } from 'src/carts/helper/update-cart.helper';
+import { updateExistingCartItems } from 'src/carts/helper/update-cart.helper';
 import { IPopulateCartItem } from 'src/carts/interface/populate-cart-item.interface';
+import { CartItem } from 'src/carts/schema/cart-item.schema';
 import { Cart, CartDocument } from 'src/carts/schema/cart.schema';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
 // import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
@@ -101,6 +102,7 @@ export class CartsService {
    */
   async updateCart(cartData: UpdateCartDto) {
     const { quantity, sku, cartId, userId } = cartData;
+    console.log(cartData, 'CARTDATA HERE');
 
     // ===== USER SCENARIOS ======== //
     /**
@@ -129,6 +131,9 @@ export class CartsService {
      */
     // ===== CART UPDATE LOGIC END ======== //
 
+    // TODO: Handle when appending existing item again with 1
+    // find if exists and if quantity 1 then append to it
+
     /**
      * First HIT
      * Fresh user
@@ -150,17 +155,27 @@ export class CartsService {
       try {
         const cart = new this.cartModel({
           totalQuantity: quantity,
-          totalPrice: price,
+          totalPrice: price * quantity,
           items: [
             {
-              productId: productVariant.productId,
+              productId: productVariant.productId?._id,
               productVariantId: productVariant._id,
               quantity,
             },
           ],
           userId: undefined,
         });
-        return cart;
+        await cart.save();
+        return await cart.populate([
+          {
+            path: 'items.productId',
+            select: 'name previewImageUrl',
+          },
+          {
+            path: 'items.productVariantId',
+            select: 'name attribute sku price images',
+          },
+        ]);
       } catch (error) {
         if (error instanceof Error) {
           throw new BadRequestException(error.message);
@@ -175,7 +190,7 @@ export class CartsService {
     if ((cartId && !userId) || (cartId && userId)) {
       // check if cart exists in db
       const cart = await this.cartModel
-        .findById(cartId)
+        .findById(new Types.ObjectId(cartId))
         .populate('items.productId', 'name previewImageUrl')
         .populate(
           'items.productVariantId',
@@ -191,14 +206,58 @@ export class CartsService {
       const productVariant =
         await this.productVariantsService.findVariantBySku(sku);
 
+      if (!productVariant)
+        throw new NotFoundException('Product variant not found');
+
       // increment/decrement
       if (quantity !== 0) {
+        // need to differentiate existing and new item
+        const itemExists = cart.items.find(
+          (item) =>
+            item.productVariantId._id.toString() ===
+            productVariant._id.toString(),
+        );
+
+        if (!itemExists) {
+          // appending new item to cart
+          // NOTE: exclamation on _id
+          cart.items.push({
+            productId: new Types.ObjectId(productVariant.productId!._id),
+            productVariantId: new Types.ObjectId(productVariant._id),
+            quantity: quantity,
+          });
+
+          // TODO: is there a better way?
+          await cart.populate([
+            {
+              path: 'items.productId',
+              select: 'name previewImageUrl',
+            },
+            {
+              path: 'items.productVariantId',
+              select: 'name attribute sku price images',
+            },
+          ]);
+
+          // type cast cart items directly
+          const { totalPrice, totalQuantity } = recalculateCart(
+            cart.items as unknown as IPopulateCartItem[],
+          );
+          cart.totalPrice = totalPrice;
+          cart.totalQuantity = totalQuantity;
+
+          return await cart.save();
+        }
+
         // helper function -> update cart item -> type casted
-        const updatedItems = updateCartItems({
+        const updatedItems = updateExistingCartItems({
           items: cart.items as IPopulateCartItem[],
           newQuantity: quantity,
           productVariant,
         });
+
+        // assign cart items and type-cast
+        cart.items = updatedItems as unknown as CartItem[];
 
         // re-calculate cart
         const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
@@ -218,12 +277,15 @@ export class CartsService {
         // cart is empty
         if (updatedItems.length === 0) {
           await cart.deleteOne();
-          return [];
+          return {
+            items: [],
+          };
         }
         // re-calculate cart
         const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
         cart.totalPrice = totalPrice;
         cart.totalQuantity = totalQuantity;
+        cart.items = updatedItems as unknown as CartItem[];
 
         return await cart.save();
       }
