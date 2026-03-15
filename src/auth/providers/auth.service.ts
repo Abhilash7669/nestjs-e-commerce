@@ -9,6 +9,8 @@ import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from 'src/auth/constants/jwt.constants';
 import { UserSignInDto } from 'src/auth/dto/user-sign-in.dto';
 import { HashingProvider } from 'src/auth/providers/hashing.provider';
+import { CartsService } from 'src/carts/providers/carts.service';
+import { CartDocument } from 'src/carts/schema/cart.schema';
 import { UsersService } from 'src/users/providers/users.service';
 
 @Injectable()
@@ -29,12 +31,20 @@ export class AuthService {
      * DI jwtService
      */
     private readonly jwtService: JwtService,
+
+    /**
+     * DI cartsService
+     */
+    private readonly cartsService: CartsService,
   ) {}
   async signIn(
     userSignInDto: UserSignInDto,
-  ): Promise<{ access_token: string }> {
+    cartId?: string,
+  ): Promise<{
+    access_token: string;
+    mergedCart: CartDocument | null;
+  }> {
     const user = await this.usersService.getUserByEmail(userSignInDto.email);
-    console.log(userSignInDto, 'HIT');
     if (!user) throw new NotFoundException('Invalid Credentials');
 
     // compare password
@@ -54,8 +64,15 @@ export class AuthService {
       secret: jwtConstants.secret,
     });
 
+    // merge cart
+    const mergedCart = await this.cartsService.mergeCart({
+      userId: user._id.toString(),
+      cartId,
+    });
+
     return {
       access_token,
+      mergedCart,
     };
   }
 }

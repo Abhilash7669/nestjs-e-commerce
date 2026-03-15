@@ -1,19 +1,21 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
-import { UpdateCartDto } from 'src/carts/dto/update-cart.dto';
 import { discountedPriceChecker } from 'src/carts/helper/discounted-price-checker.helper';
 import { recalculateCart } from 'src/carts/helper/recalculate-cart.helper';
 import { updateExistingCartItems } from 'src/carts/helper/update-cart.helper';
 import { IPopulateCartItem } from 'src/carts/interface/populate-cart-item.interface';
+import { IUpdateCart } from 'src/carts/interface/update-cart.interface';
 import { CartItem } from 'src/carts/schema/cart-item.schema';
 import { Cart, CartDocument } from 'src/carts/schema/cart.schema';
+import { TFreshCartUser } from 'src/carts/types/fresh-cart-user.types';
+import { TMergeCart } from 'src/carts/types/merge-cart.types';
 import { applyVariantDiscount } from 'src/product-variants/domain/pricing/applyVariantDiscount';
-// import { ProductVaraintsDiscountEnum } from 'src/product-variants/enum/product-variants-discount.enum';
 import { ProductVariantsService } from 'src/product-variants/providers/product-variants.service';
 
 @Injectable()
@@ -102,10 +104,9 @@ export class CartsService {
    * @returns Cart
    */
   async updateCart(
-    cartData: UpdateCartDto,
-  ): Promise<CartDocument | { items: [] }> {
+    cartData: IUpdateCart,
+  ): Promise<CartDocument | { items: never[] }> {
     const { quantity, sku, cartId, userId } = cartData;
-    console.log(cartData, 'CARTDATA HERE');
 
     // ===== USER SCENARIOS ======== //
     /**
@@ -143,183 +144,398 @@ export class CartsService {
      */
     if (!cartId && !userId) {
       // find items in db with sku
+      return await this.isFreshUser({ quantity, sku });
+    }
 
-      const productVariant =
-        await this.productVariantsService.findVariantBySku(sku);
-
-      // calculate price of product using applyDiscount
-
-      const discountedPrice = applyVariantDiscount({
-        basePrice: productVariant.price,
-        discount: productVariant.discount,
-        quantity,
-      });
-
-      // calculate necessary values for creating cart
-      try {
-        const cart = new this.cartModel({
-          totalQuantity: quantity,
-          totalPrice: discountedPrice * quantity,
-          items: [
-            {
-              productId: productVariant.productId?._id,
-              productVariantId: productVariant._id,
-              quantity,
-              discountedPrice: discountedPriceChecker(
-                discountedPrice,
-                productVariant.price,
-              ),
-            },
-          ],
-          userId: undefined,
-        });
-        await cart.save();
-        return await cart.populate([
-          {
-            path: 'items.productId',
-            select: 'name previewImageUrl',
-          },
-          {
-            path: 'items.productVariantId',
-            select: 'name attribute sku price images',
-          },
-        ]);
-      } catch (error) {
-        if (error instanceof Error) {
-          throw new BadRequestException(error.message);
-        }
-        throw error;
-      }
+    if (!cartId && userId) {
+      return await this.isFreshAuthUser({ quantity, sku }, userId);
     }
 
     /**
-     * Has CartId
+     * Has CartId || has Both
      */
-    if ((cartId && !userId) || (cartId && userId)) {
-      // check if cart exists in db
-      const cart = await this.cartModel
-        .findById(new Types.ObjectId(cartId))
-        .populate('items.productId', 'name previewImageUrl')
-        .populate(
-          'items.productVariantId',
-          'name attribute sku price images discount',
-        );
-
-      if (!cart) throw new NotFoundException('Cart not found');
-
-      // top level userId check
-      if (userId) cart.userId = new Types.ObjectId(userId);
-
-      // get items from db
-      const productVariant =
-        await this.productVariantsService.findVariantBySku(sku);
-
-      if (!productVariant)
-        throw new NotFoundException('Product variant not found');
-
-      // increment/decrement
-      if (quantity !== 0) {
-        // need to differentiate existing and new item
-        const itemExists = cart.items.find(
-          (item) =>
-            item.productVariantId._id.toString() ===
-            productVariant._id.toString(),
-        );
-
-        if (!itemExists) {
-          // discounted price if any
-          const discountedPrice = applyVariantDiscount({
-            basePrice: productVariant.price,
-            discount: productVariant.discount,
-            quantity,
-          });
-          // appending new item to cart
-          // NOTE: exclamation on _id
-          cart.items.push({
-            productId: new Types.ObjectId(productVariant.productId!._id),
-            productVariantId: new Types.ObjectId(productVariant._id),
-            quantity: quantity,
-            discountedPrice: discountedPriceChecker(
-              discountedPrice,
-              productVariant.price,
-            ),
-          });
-
-          // TODO: is there a better way?
-          await cart.populate([
-            {
-              path: 'items.productId',
-              select: 'name previewImageUrl',
-            },
-            {
-              path: 'items.productVariantId',
-              select: 'name attribute sku price images discount',
-            },
-          ]);
-
-          // type cast cart items directly
-          const { totalPrice, totalQuantity } = recalculateCart(
-            cart.items as unknown as IPopulateCartItem[],
-          );
-          cart.totalPrice = totalPrice;
-          cart.totalQuantity = totalQuantity;
-
-          return await cart.save();
-        }
-
-        // helper function -> update cart item -> type casted
-        const discountedPrice = applyVariantDiscount({
-          basePrice: productVariant.price,
-          discount: productVariant.discount,
-          quantity,
-        });
-        const updatedItems = updateExistingCartItems({
-          items: cart.items as IPopulateCartItem[],
-          newQuantity: quantity,
-          productVariant,
-          discountedPrice: discountedPriceChecker(
-            discountedPrice,
-            productVariant.price,
-          ),
-        });
-
-        // assign cart items and type-cast
-        cart.items = updatedItems as unknown as CartItem[];
-
-        // re-calculate cart
-        const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
-        cart.totalPrice = totalPrice;
-        cart.totalQuantity = totalQuantity;
-        return await cart.save();
-      }
-      // if zero - check if empty or not
-      else {
-        const updatedItems = cart.items.filter(
-          (item) =>
-            item.productVariantId._id.toString() !==
-            productVariant._id.toString(),
-        ) as IPopulateCartItem[];
-
-        // cart is empty
-        if (updatedItems.length === 0) {
-          await cart.deleteOne();
-          return {
-            items: [],
-          };
-        }
-        // re-calculate cart
-        const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
-        cart.totalPrice = totalPrice;
-        cart.totalQuantity = totalQuantity;
-        cart.items = updatedItems as unknown as CartItem[];
-
-        return await cart.save();
-      }
+    if ((cartId && !userId) || (cartId && userId) || (!cartId && userId)) {
+      return await this.hasCartId(cartData);
     }
 
     // default response
     return {
       items: [],
     };
+  }
+
+  async mergeCart(cartData: TMergeCart) {
+    const { cartId, userId } = cartData;
+
+    // clear cut here
+    if (!cartId) {
+      return null;
+    }
+
+    // find the cart with userId
+    const cartByUserId = await this.cartModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+      })
+      .populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images discount',
+        },
+      ]);
+
+    /**
+     * if user has no cart, find cart with cartId
+     * append user id into that cart and save
+     */
+    if (!cartByUserId) {
+      const existingCart = await this.cartModel.findById(cartId);
+
+      // user logged in, but no cart exists
+      if (!existingCart) throw new NotFoundException('No cart Found');
+
+      existingCart.userId = new Types.ObjectId(userId);
+
+      await existingCart.save();
+
+      return await existingCart.populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images discount',
+        },
+      ]);
+    }
+
+    /**
+     * User already has a cart
+     * 1. Could have added items in guest cart
+     *    which would need to be merged.
+     * 2. No items in guest cart
+     *    in which case no need to merge carts
+     */
+
+    // need to check if both cartId are same, if both are same no need to merge
+    if (cartId === cartByUserId._id.toString()) {
+      return cartByUserId;
+    } else {
+      // merge cart logic here
+
+      // get guest cart
+      const cartByCartId = await this.cartModel.findById(cartId).populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images discount',
+        },
+      ]);
+
+      // NOTE: Rare case, no guest cart
+      if (!cartByCartId) {
+        return null;
+      }
+
+      const authUserCartItems = cartByUserId.items;
+      const guestUserCartItems = cartByCartId.items;
+
+      for (const guestUserItem of guestUserCartItems) {
+        const commonItem = authUserCartItems.find(
+          (item) =>
+            item.productVariantId._id.toString() ===
+            guestUserItem.productVariantId._id.toString(),
+        );
+
+        if (commonItem) {
+          commonItem.quantity = commonItem.quantity + guestUserItem.quantity;
+        } else {
+          authUserCartItems.push(guestUserItem);
+        }
+      }
+
+      // re-calculate cart
+      const { totalPrice, totalQuantity } = recalculateCart(
+        authUserCartItems as unknown as IPopulateCartItem[],
+      );
+
+      cartByUserId.totalPrice = totalPrice;
+      cartByUserId.totalQuantity = totalQuantity;
+
+      const [authCart, guestCart] = await Promise.allSettled([
+        cartByUserId.save(),
+        cartByCartId.deleteOne(),
+      ]);
+
+      if (authCart.status === 'rejected') {
+        throw new InternalServerErrorException('Could not save auth user Cart');
+      }
+
+      if (guestCart.status === 'rejected') {
+        throw new InternalServerErrorException('Could not delete guest cart');
+      }
+      const data = await authCart.value.populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images discount',
+        },
+      ]);
+      console.log(data, 'DATA');
+      return data;
+    }
+  }
+
+  protected async hasCartId(cartData: IUpdateCart) {
+    const { cartId, userId } = cartData;
+
+    if (!cartId) {
+      const cartByUserId = await this.cartModel
+        .findOne({
+          userId: new Types.ObjectId(userId),
+        })
+        .populate('items.productId', 'name previewImageUrl')
+        .populate(
+          'items.productVariantId',
+          'name attribute sku price images discount',
+        );
+      if (!cartByUserId) throw new NotFoundException('Cart not found');
+      return await this.updateCartLogic(cartData, cartByUserId);
+    }
+
+    // check if cart exists in db
+    const cart = await this.cartModel
+      .findById(new Types.ObjectId(cartId))
+      .populate('items.productId', 'name previewImageUrl')
+      .populate(
+        'items.productVariantId',
+        'name attribute sku price images discount',
+      );
+
+    if (!cart) throw new NotFoundException('Cart not found');
+
+    // top level userId check
+    if (userId) cart.userId = new Types.ObjectId(userId);
+    return await this.updateCartLogic(cartData, cart);
+  }
+
+  protected async updateCartLogic(cartData: IUpdateCart, cart: CartDocument) {
+    const { quantity, sku } = cartData;
+    // get items from db
+    const productVariant =
+      await this.productVariantsService.findVariantBySku(sku);
+
+    if (!productVariant)
+      throw new NotFoundException('Product variant not found');
+
+    // increment/decrement
+    if (quantity !== 0) {
+      // need to differentiate existing and new item
+      const itemExists = cart.items.find(
+        (item) =>
+          item.productVariantId._id.toString() ===
+          productVariant._id.toString(),
+      );
+
+      if (!itemExists) {
+        // discounted price if any
+        const discountedPrice = applyVariantDiscount({
+          basePrice: productVariant.price,
+          discount: productVariant.discount,
+          quantity,
+        });
+        // appending new item to cart
+        // NOTE: exclamation on _id
+        cart.items.push({
+          productId: new Types.ObjectId(productVariant.productId!._id),
+          productVariantId: new Types.ObjectId(productVariant._id),
+          quantity: quantity,
+          discountedPrice: discountedPriceChecker(
+            discountedPrice,
+            productVariant.price,
+          ),
+        });
+
+        // TODO: is there a better way?
+        await cart.populate([
+          {
+            path: 'items.productId',
+            select: 'name previewImageUrl',
+          },
+          {
+            path: 'items.productVariantId',
+            select: 'name attribute sku price images discount',
+          },
+        ]);
+
+        // type cast cart items directly
+        const { totalPrice, totalQuantity } = recalculateCart(
+          cart.items as unknown as IPopulateCartItem[],
+        );
+        cart.totalPrice = totalPrice;
+        cart.totalQuantity = totalQuantity;
+
+        return await cart.save();
+      }
+
+      // helper function -> update cart item -> type casted
+      const discountedPrice = applyVariantDiscount({
+        basePrice: productVariant.price,
+        discount: productVariant.discount,
+        quantity,
+      });
+      const updatedItems = updateExistingCartItems({
+        items: cart.items as IPopulateCartItem[],
+        newQuantity: quantity,
+        productVariant,
+        discountedPrice: discountedPriceChecker(
+          discountedPrice,
+          productVariant.price,
+        ),
+      });
+
+      // assign cart items and type-cast
+      cart.items = updatedItems as unknown as CartItem[];
+
+      // re-calculate cart
+      const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
+      cart.totalPrice = totalPrice;
+      cart.totalQuantity = totalQuantity;
+      return await cart.save();
+    }
+    // if zero - check if empty or not
+    else {
+      const updatedItems = cart.items.filter(
+        (item) =>
+          item.productVariantId._id.toString() !==
+          productVariant._id.toString(),
+      ) as IPopulateCartItem[];
+
+      // cart is empty
+      if (updatedItems.length === 0) {
+        await cart.deleteOne();
+        return {
+          items: [],
+        };
+      }
+      // re-calculate cart
+      const { totalPrice, totalQuantity } = recalculateCart(updatedItems);
+      cart.totalPrice = totalPrice;
+      cart.totalQuantity = totalQuantity;
+      cart.items = updatedItems as unknown as CartItem[];
+
+      return await cart.save();
+    }
+  }
+
+  protected async isFreshUser(cartData: TFreshCartUser) {
+    const { quantity, sku } = cartData;
+    const productVariant =
+      await this.productVariantsService.findVariantBySku(sku);
+
+    // calculate price of product using applyDiscount
+
+    const discountedPrice = applyVariantDiscount({
+      basePrice: productVariant.price,
+      discount: productVariant.discount,
+      quantity,
+    });
+
+    // calculate necessary values for creating cart
+    try {
+      const cart = new this.cartModel({
+        totalQuantity: quantity,
+        totalPrice: discountedPrice * quantity,
+        items: [
+          {
+            productId: productVariant.productId?._id,
+            productVariantId: productVariant._id,
+            quantity,
+            discountedPrice: discountedPriceChecker(
+              discountedPrice,
+              productVariant.price,
+            ),
+          },
+        ],
+        userId: undefined,
+      });
+      await cart.save();
+      return await cart.populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images',
+        },
+      ]);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
+  protected async isFreshAuthUser(cartData: TFreshCartUser, userId: string) {
+    const { quantity, sku } = cartData;
+    const productVariant =
+      await this.productVariantsService.findVariantBySku(sku);
+
+    // calculate price of product using applyDiscount
+
+    const discountedPrice = applyVariantDiscount({
+      basePrice: productVariant.price,
+      discount: productVariant.discount,
+      quantity,
+    });
+
+    // calculate necessary values for creating cart
+    try {
+      const cart = new this.cartModel({
+        totalQuantity: quantity,
+        totalPrice: discountedPrice * quantity,
+        items: [
+          {
+            productId: productVariant.productId?._id,
+            productVariantId: productVariant._id,
+            quantity,
+            discountedPrice: discountedPriceChecker(
+              discountedPrice,
+              productVariant.price,
+            ),
+          },
+        ],
+        userId: new Types.ObjectId(userId),
+      });
+      await cart.save();
+      return await cart.populate([
+        {
+          path: 'items.productId',
+          select: 'name previewImageUrl',
+        },
+        {
+          path: 'items.productVariantId',
+          select: 'name attribute sku price images',
+        },
+      ]);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
   }
 }

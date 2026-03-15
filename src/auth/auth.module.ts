@@ -6,6 +6,7 @@ import { BcryptProvider } from './providers/bcrypt.provider';
 import { UsersModule } from 'src/users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from 'src/auth/constants/jwt.constants';
+import { CartsModule } from 'src/carts/carts.module';
 
 @Module({
   controllers: [AuthController],
@@ -19,6 +20,7 @@ import { jwtConstants } from 'src/auth/constants/jwt.constants';
   exports: [AuthService, HashingProvider],
   imports: [
     forwardRef(() => UsersModule),
+    CartsModule,
     JwtModule.register({
       global: true,
       secret: jwtConstants.secret,

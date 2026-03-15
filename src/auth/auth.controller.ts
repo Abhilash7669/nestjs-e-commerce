@@ -3,6 +3,7 @@ import { ApiOperation } from '@nestjs/swagger';
 import { UserSignInDto } from 'src/auth/dto/user-sign-in.dto';
 import { AuthGuard } from 'src/auth/guard/auth.guard';
 import { AuthService } from 'src/auth/providers/auth.service';
+import { GetCartId } from 'src/common/decorators/get-cart-id.decorator';
 import { User } from 'src/common/decorators/user.decorator';
 
 @Controller('auth')
@@ -17,8 +18,8 @@ export class AuthController {
   @ApiOperation({
     description: 'User Sign in',
   })
-  signIn(@Body() userSignInDto: UserSignInDto) {
-    return this.authService.signIn(userSignInDto);
+  signIn(@Body() userSignInDto: UserSignInDto, @GetCartId() cartId?: string) {
+    return this.authService.signIn(userSignInDto, cartId);
   }
 
   @UseGuards(AuthGuard)
