@@ -4,3 +4,9 @@ export type VariantDiscount = {
   discountType: ProductVaraintsDiscountEnum;
   value: number;
 };
+
+export type TApplyDiscount = {
+  discount: VariantDiscount | null | undefined;
+  basePrice: number;
+  quantity: number;
+};

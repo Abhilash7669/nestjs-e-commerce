@@ -178,10 +178,11 @@ export class ProductsService {
 
     const finalVariant = productVariants.map((variant) => {
       // domain function to calculate discount
-      const discountedPrice = applyVariantDiscount(
-        variant.discount,
-        variant.price,
-      );
+      const discountedPrice = applyVariantDiscount({
+        basePrice: variant.price,
+        discount: variant.discount || null,
+        quantity: 1,
+      });
 
       return {
         ...variant,

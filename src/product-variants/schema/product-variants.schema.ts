@@ -15,10 +15,10 @@ export class ProductVariant {
   @Prop({
     type: Types.ObjectId,
     ref: Product.name,
-    default: null,
+    default: undefined,
     index: true,
   })
-  productId: Types.ObjectId | null;
+  productId?: Types.ObjectId;
 
   /**
    * Sudo Zoho related fields

@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, IsNotEmpty, IsString } from 'class-validator';
-import { Types } from 'mongoose';
 
 export class CartItemDto {
   @IsString()
